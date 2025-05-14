@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "priority": 1000,
+  "package": "com.manwe.dsl.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MainMixin",
+    "MinecraftServerInvoker",
+    "accessors.DedicatedServerAccessor",
+    "accessors.MinecraftServerAccessor",
+    "accessors.ServerConnectionListenerAccessor"
+  ],
+  "client": [
+  ]
+}
