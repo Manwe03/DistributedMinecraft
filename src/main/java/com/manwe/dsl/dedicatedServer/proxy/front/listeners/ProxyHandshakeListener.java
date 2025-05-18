@@ -1,4 +1,4 @@
-package com.manwe.dsl.dedicatedServer.proxy.listeners;
+package com.manwe.dsl.dedicatedServer.proxy.front.listeners;
 
 import net.minecraft.SharedConstants;
 import net.minecraft.network.Connection;

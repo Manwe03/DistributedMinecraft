@@ -1,4 +1,4 @@
-package com.manwe.dsl.dedicatedServer.proxy.listeners;
+package com.manwe.dsl.dedicatedServer.proxy.front.listeners;
 
 import com.google.common.primitives.Ints;
 import com.manwe.dsl.DistributedServerLevels;

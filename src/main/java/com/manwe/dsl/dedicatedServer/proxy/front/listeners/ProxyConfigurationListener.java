@@ -1,4 +1,4 @@
-package com.manwe.dsl.dedicatedServer.proxy.listeners;
+package com.manwe.dsl.dedicatedServer.proxy.front.listeners;
 
 import com.manwe.dsl.DistributedServerLevels;
 import com.mojang.authlib.GameProfile;
@@ -51,6 +51,7 @@ public class ProxyConfigurationListener extends ServerConfigurationPacketListene
         net.neoforged.neoforge.network.registration.NetworkRegistry.onConfigurationFinished(this);
 
         try {
+            //this.server es un ProxyDedicatedServer
             PlayerList playerlist = this.server.getPlayerList();
             if (playerlist.getPlayer(this.localGameProfile.getId()) != null) {
                 this.disconnect(PlayerList.DUPLICATE_LOGIN_DISCONNECT_MESSAGE);
@@ -63,8 +64,9 @@ public class ProxyConfigurationListener extends ServerConfigurationPacketListene
                 return;
             }
 
-            ServerPlayer serverplayer = playerlist.getPlayerForLogin(this.localGameProfile, this.localClientInformation);
-            playerlist.placeNewPlayer(this.connection, serverplayer, this.createCookie(this.localClientInformation, this.connectionType));
+            ServerPlayer serverplayer = playerlist.getPlayerForLogin(localGameProfile, localClientInformation);
+            playerlist.placeNewPlayer(this.connection, serverplayer, this.createCookie(localClientInformation, this.connectionType));
+
         } catch (Exception exception) {
             DistributedServerLevels.LOGGER.error("Couldn't place player in world", exception);
             this.connection.send(new ClientboundDisconnectPacket(DISCONNECT_REASON_INVALID_DATA));

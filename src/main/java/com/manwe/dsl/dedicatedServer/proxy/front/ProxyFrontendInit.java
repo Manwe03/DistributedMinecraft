@@ -1,24 +1,23 @@
-package com.manwe.dsl.dedicatedServer.proxy;
+package com.manwe.dsl.dedicatedServer.proxy.front;
 
-import com.manwe.dsl.connectionRouting.RegionRouter;
-import com.manwe.dsl.dedicatedServer.proxy.listeners.ProxyHandshakeListener;
+import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
+import com.manwe.dsl.dedicatedServer.proxy.ProxyServerConnectionListener;
+import com.manwe.dsl.dedicatedServer.proxy.front.listeners.ProxyHandshakeListener;
 import io.netty.channel.*;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.LegacyQueryHandler;
 
-import java.util.List;
-
-class ProxyFrontendInit extends ChannelInitializer<Channel> {
-    private final MinecraftServer server;
-    private final List<Connection> tracker;   // misma lista que usa el core
+public class ProxyFrontendInit extends ChannelInitializer<Channel> {
+    private final ProxyDedicatedServer server;
+    private final ProxyServerConnectionListener listener;
 
     private static final int READ_TIMEOUT = Integer.parseInt(System.getProperty("neoforge.readTimeout", "30"));
 
-    ProxyFrontendInit(MinecraftServer srv, List<Connection> t) {
-        this.server = srv;
-        this.tracker = t;
+    public ProxyFrontendInit(ProxyDedicatedServer server, ProxyServerConnectionListener listener) {
+        this.server = server;
+        this.listener = listener;
     }
 
     @Override
@@ -28,9 +27,14 @@ class ProxyFrontendInit extends ChannelInitializer<Channel> {
         try { ch.config().setOption(ChannelOption.TCP_NODELAY, true); } catch (ChannelException ignored) {}
         ChannelPipeline pl = ch.pipeline().addLast("timeout", new ReadTimeoutHandler(READ_TIMEOUT));
 
+        if (server.repliesToStatus()) {
+            pl.addLast("legacy_query", new LegacyQueryHandler(server));
+        }
+
         Connection.configureSerialization(pl, PacketFlow.SERVERBOUND, false, null);
         Connection conn = new Connection(PacketFlow.SERVERBOUND);
-        tracker.add(conn);
+
+        listener.getConnections().add(conn);
         conn.configurePacketHandler(pl);
 
         conn.setListenerForServerboundHandshake(new ProxyHandshakeListener(server, conn));

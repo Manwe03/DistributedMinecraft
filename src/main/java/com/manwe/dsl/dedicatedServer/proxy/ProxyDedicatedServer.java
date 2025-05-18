@@ -4,6 +4,8 @@ import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.SetConnectionIntf;
 import com.manwe.dsl.arbiter.ArbiterClient;
 import com.manwe.dsl.config.DSLServerConfigs;
+import com.manwe.dsl.connectionRouting.RegionRouter;
+import com.manwe.dsl.dedicatedServer.worker.LocalPlayerList;
 import com.manwe.dsl.mixin.accessors.DedicatedServerAccessor;
 import com.mojang.datafixers.DataFixer;
 import net.minecraft.*;
@@ -13,6 +15,7 @@ import net.minecraft.server.level.progress.ChunkProgressListenerFactory;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.server.players.OldUsersConverter;
+import net.minecraft.server.players.PlayerList;
 import net.minecraft.server.rcon.thread.QueryThreadGs4;
 import net.minecraft.server.rcon.thread.RconThread;
 import net.minecraft.util.debugchart.*;
@@ -25,14 +28,19 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 
 public class ProxyDedicatedServer extends DedicatedServer {
 
     URI arbiterUri = URI.create(DSLServerConfigs.ARBITER_ADDR.get());
     ArbiterClient arbiterClient = new ArbiterClient(arbiterUri);
+    private DedicatedPlayerList localRemotePlayerListRef;
+
+    private ArbiterClient.ArbiterRes topology;
 
     public ProxyDedicatedServer(Thread pServerThread, LevelStorageSource.LevelStorageAccess pStorageSource, PackRepository pPackRepository, WorldStem pWorldStem, DedicatedServerSettings pSettings, DataFixer pFixerUpper, Services pServices, ChunkProgressListenerFactory pProgressListenerFactory) {
         super(pServerThread, pStorageSource, pPackRepository, pWorldStem, pSettings, pFixerUpper, pServices, pProgressListenerFactory);
@@ -91,13 +99,11 @@ public class ProxyDedicatedServer extends DedicatedServer {
             inetaddress = InetAddress.getByName(this.getLocalIp());
         }
 
-        ArbiterClient.ArbiterRes distributedSystemTopology = null;
 
         try {
-            distributedSystemTopology = arbiterClient.fetch();
-            System.out.println(distributedSystemTopology);
-            this.setPort(distributedSystemTopology.port);
-            System.out.println("From Arbiter: "+distributedSystemTopology.port +" : "+distributedSystemTopology.proxy);
+            topology = arbiterClient.fetch();
+            this.setPort(topology.port);
+            System.out.println("From Arbiter: "+topology.port +" : "+topology.proxy);
         } catch (Exception ex) {
             DistributedServerLevels.LOGGER.error("Unexpected Error",ex);
             throw new RuntimeException("Arbiter unavailable cannot fetch port and role");
@@ -110,7 +116,7 @@ public class ProxyDedicatedServer extends DedicatedServer {
         try {
 
             if(this.getConnection() instanceof ProxyServerConnectionListener pServerConnectionListener){ //Listener custom
-                pServerConnectionListener.startTcpServerListener(inetaddress,this.getPort(),distributedSystemTopology);
+                pServerConnectionListener.startTcpServerListener(inetaddress,this.getPort());
             } else { //Default listener
                 System.out.println("Connection is not an instance of ProxyServerConnectionListener");
                 this.getConnection().startTcpServerListener(inetaddress, this.getPort());
@@ -139,7 +145,13 @@ public class ProxyDedicatedServer extends DedicatedServer {
         if (!OldUsersConverter.serverReadyAfterUserconversion(this)) {
             return false;
         } else {
-            this.setPlayerList(new DedicatedPlayerList(this, this.registries(), this.playerDataStorage));
+            //Set RemotePlayerList
+            if(topology.proxy){
+                localRemotePlayerListRef = new RemotePlayerList(this, this.registries(), this.playerDataStorage);
+            }else {
+                localRemotePlayerListRef = new LocalPlayerList(this, this.registries(), this.playerDataStorage);
+            }
+            this.setPlayerList(localRemotePlayerListRef);
             ((DedicatedServerAccessor)this).setDebugSampleSubscriptionTracker(new DebugSampleSubscriptionTracker(this.getPlayerList()));
             ((DedicatedServerAccessor)this).setTickTimeLogger(new RemoteSampleLogger(
                 TpsDebugDimensions.values().length, ((DedicatedServerAccessor)this).getDebugSampleSubscriptionTracker(), RemoteDebugSampleType.TICK_TIME
@@ -189,6 +201,18 @@ public class ProxyDedicatedServer extends DedicatedServer {
             net.neoforged.neoforge.server.ServerLifecycleHooks.handleServerStarting(this);
             return true;
         }
+    }
+
+    public boolean isProxy(){
+        return topology.proxy;
+    }
+
+    public List<InetSocketAddress> getWorkers(){
+        return topology.connections;
+    }
+
+    public PlayerList getSpecificPlayerList(){
+        return localRemotePlayerListRef;
     }
 
     @Override

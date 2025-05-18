@@ -6,8 +6,10 @@
   "mixins": [
     "MainMixin",
     "MinecraftServerInvoker",
+    "accessors.ConnectionAccessor",
     "accessors.DedicatedServerAccessor",
     "accessors.MinecraftServerAccessor",
+    "accessors.PlayerListAccessor",
     "accessors.ServerConnectionListenerAccessor"
   ],
   "client": [
