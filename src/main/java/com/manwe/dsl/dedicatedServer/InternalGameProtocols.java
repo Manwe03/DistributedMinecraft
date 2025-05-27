@@ -1,7 +1,8 @@
 package com.manwe.dsl.dedicatedServer;
 
 import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.PlayerInitPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.WorkerBoundPlayerInitPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.WorkerProxyPacket;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
 import com.manwe.dsl.dedicatedServer.worker.packets.ProxyWorkerPacket;
@@ -14,7 +15,8 @@ public class InternalGameProtocols {
     public static final ProtocolInfo.Unbound<WorkerListener, FriendlyByteBuf> SERVERBOUND_TEMPLATE = ProtocolInfoBuilder.serverboundProtocol(
             ConnectionProtocol.PLAY, consumer ->
                     consumer.addPacket(InternalPacketTypes.PROXY_WORKER_PACKET_CONTAINER, ProxyWorkerPacket.STREAM_CODEC)
-                    .addPacket(InternalPacketTypes.PROXY_WORKER_CLIENT_LOGIN, PlayerInitPacket.STREAM_CODEC)
+                    .addPacket(InternalPacketTypes.PROXY_WORKER_CLIENT_LOGIN, WorkerBoundPlayerInitPacket.STREAM_CODEC)
+                    .addPacket(InternalPacketTypes.PROXY_WORKER_CLIENT_DISCONNECT, WorkerBoundPlayerDisconnectPacket.STREAM_CODEC)
     );
     public static final ProtocolInfo<WorkerListener> SERVERBOUND = SERVERBOUND_TEMPLATE.bind(FriendlyByteBuf::new);
 

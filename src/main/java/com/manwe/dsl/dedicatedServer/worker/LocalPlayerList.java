@@ -1,15 +1,18 @@
 package com.manwe.dsl.dedicatedServer.worker;
 
 import com.manwe.dsl.DistributedServerLevels;
-import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerGameListener;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.WorkerProxyPacket;
+import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerGamePacketListenerImpl;
+import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
 import com.manwe.dsl.mixin.accessors.PlayerListAccessor;
+import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Dynamic;
 import net.minecraft.core.LayeredRegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.Connection;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.status.ServerStatus;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.RegistryLayer;
 import net.minecraft.server.dedicated.DedicatedPlayerList;
@@ -18,12 +21,16 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
+import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
+import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.PlayerDataStorage;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,9 +41,15 @@ public class LocalPlayerList extends DedicatedPlayerList {
 
     @Override
     public void placeNewPlayer(Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie) {
+        GameProfile gameprofile = pPlayer.getGameProfile();
+        GameProfileCache gameprofilecache = this.getServer().getProfileCache();
+        if (gameprofilecache != null) gameprofilecache.add(gameprofile);
 
+         //TODO Hay que ver esto de las dimensiones
         Optional<CompoundTag> optional1 = this.load(pPlayer);
-        ResourceKey<Level> resourcekey = optional1.<ResourceKey<Level>>flatMap(p_337568_ -> DimensionType.parseLegacy(new Dynamic<>(NbtOps.INSTANCE, p_337568_.get("Dimension"))).resultOrPartial(DistributedServerLevels.LOGGER::error)).orElse(Level.OVERWORLD);
+        ResourceKey<Level> resourcekey = optional1.<ResourceKey<Level>>flatMap(
+            p_337568_ -> DimensionType.parseLegacy(new Dynamic<>(NbtOps.INSTANCE, p_337568_.get("Dimension"))).resultOrPartial(DistributedServerLevels.LOGGER::error)
+        ).orElse(Level.OVERWORLD);
         ServerLevel serverlevel = this.getServer().getLevel(resourcekey);
         ServerLevel serverlevel1;
         if (serverlevel == null) {
@@ -45,10 +58,11 @@ public class LocalPlayerList extends DedicatedPlayerList {
         } else {
             serverlevel1 = serverlevel;
         }
+
         pPlayer.setServerLevel(serverlevel1);
         String s1 = pConnection.getLoggableAddress(this.getServer().logIPs());
         DistributedServerLevels.LOGGER.info(
-                "{}[{}] logged in with entity id {} at ({}, {}, {})",
+                "Worker: {}[{}] logged in with entity id {} at ({}, {}, {})",
                 pPlayer.getName().getString(),
                 s1,
                 pPlayer.getId(),
@@ -56,27 +70,58 @@ public class LocalPlayerList extends DedicatedPlayerList {
                 pPlayer.getY(),
                 pPlayer.getZ()
         );
-
+        LevelData leveldata = serverlevel1.getLevelData();
         pPlayer.loadGameTypes(optional1.orElse(null));
-        ServerGamePacketListenerImpl servergamepacketlistenerimpl = new WorkerGameListener(this.getServer(), pConnection, pPlayer, pCookie);
-        pConnection.setupInboundProtocol(GameProtocols.SERVERBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(this.getServer().registryAccess(), servergamepacketlistenerimpl.getConnectionType())), servergamepacketlistenerimpl);
 
-        System.out.println("setupInboundProtocol");
+        /*
+        GameRules gamerules = serverlevel1.getGameRules();
+        boolean flag = gamerules.getBoolean(GameRules.RULE_DO_IMMEDIATE_RESPAWN);
+        boolean flag1 = gamerules.getBoolean(GameRules.RULE_REDUCEDDEBUGINFO);
+        boolean flag2 = gamerules.getBoolean(GameRules.RULE_LIMITED_CRAFTING);
+        pConnection.send(
+                new ClientboundLoginPacket(
+                        pPlayer.getId(),
+                        leveldata.isHardcore(),
+                        getServer().levelKeys(),
+                        this.getMaxPlayers(),
+                        this.getViewDistance(),
+                        this.getSimulationDistance(),
+                        flag1,
+                        !flag,
+                        flag2,
+                        pPlayer.createCommonSpawnInfo(serverlevel1),
+                        getServer().enforceSecureProfile()
+                )
+        );*/ //TODO de momento el ClientboundLoginPacket lo maneja el proxy
 
+        pConnection.send(new ClientboundChangeDifficultyPacket(leveldata.getDifficulty(), leveldata.isDifficultyLocked()));
+        pConnection.send(new ClientboundPlayerAbilitiesPacket(pPlayer.getAbilities()));
+        pConnection.send(new ClientboundSetCarriedItemPacket(pPlayer.getInventory().selected));
+
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.OnDatapackSyncEvent(this, pPlayer));
+        pConnection.send(new ClientboundUpdateRecipesPacket(this.getServer().getRecipeManager().getOrderedRecipes()));
+        this.sendPlayerPermissionLevel(pPlayer); //TODO Hay que mandar esto?
         pPlayer.getStats().markAllDirty();
-
+        pPlayer.getRecipeBook().sendInitialRecipeBook(pPlayer); //TODO Hay que mandar esta información?
         this.updateEntireScoreboard(serverlevel1.getScoreboard(), pPlayer);
         this.getServer().invalidateStatus();
+        if(pConnection.getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener){
+            serverGamePacketListener.teleport(pPlayer.getX(), pPlayer.getY(), pPlayer.getZ(), pPlayer.getYRot(), pPlayer.getXRot());
+        }
+        /*
+        ServerStatus serverstatus = this.getServer().getStatus();
+        if (serverstatus != null && !pCookie.transferred()) {
+            pPlayer.sendServerStatus(serverstatus); //TODO Hay que mandar el server status?
+        }*/
 
-        servergamepacketlistenerimpl.teleport(pPlayer.getX(), pPlayer.getY(), pPlayer.getZ(), pPlayer.getYRot(), pPlayer.getXRot());
-
-        this.getPlayers().add(pPlayer);
-        ((PlayerListAccessor)this).getPlayersByUUID().put(pPlayer.getUUID(), pPlayer);
-
+        pPlayer.connection.send(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(this.getPlayers())); //TODO Hay que mandar esta información?
+        ((PlayerListAccessor) this).getPlayers().add(pPlayer);
+        ((PlayerListAccessor) this).getPlayersByUUID().put(pPlayer.getUUID(), pPlayer);
+        this.broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(pPlayer)));
+        this.sendLevelInfo(pPlayer, serverlevel1); //TODO Mandar?
         serverlevel1.addNewPlayer(pPlayer);
-
         this.getServer().getCustomBossEvents().onPlayerConnect(pPlayer);
-
+        this.sendActivePlayerEffects(pPlayer); //TODO Hay que manejar los efectos en el worker?
         if (optional1.isPresent() && optional1.get().contains("RootVehicle", 10)) {
             CompoundTag compoundtag = optional1.get().getCompound("RootVehicle");
             Entity entity = EntityType.loadEntityRecursive(
@@ -112,7 +157,7 @@ public class LocalPlayerList extends DedicatedPlayerList {
             }
         }
 
-        pPlayer.initInventoryMenu();
+        pPlayer.initInventoryMenu(); //TODO Hay que gestionar el inventario en el worker?
         net.neoforged.neoforge.event.EventHooks.firePlayerLoggedIn( pPlayer );
     }
 }

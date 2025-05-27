@@ -40,7 +40,7 @@ import java.security.PrivateKey;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class ProxyLoginListener implements ServerLoginPacketListener, TickablePacketListener {
+public class ProxyServerLoginListener implements ServerLoginPacketListener, TickablePacketListener {
 
     static final Component DISCONNECT_UNEXPECTED_QUERY = Component.translatable("multiplayer.disconnect.unexpected_query_response");
 
@@ -62,12 +62,12 @@ public class ProxyLoginListener implements ServerLoginPacketListener, TickablePa
     private final String serverId = "";
     private final boolean transferred;
 
-    public ProxyLoginListener(MinecraftServer pServer, Connection pConnection, boolean pTransferred) {
+    public ProxyServerLoginListener(MinecraftServer pServer, Connection pConnection, boolean pTransferred) {
         this.server = pServer;
         this.connection = pConnection;
         this.challenge = Ints.toByteArray(RandomSource.create().nextInt());
         this.transferred = pTransferred;
-        System.out.println("ProxyLoginListener Created");
+        System.out.println("ProxyServerLoginListener Created");
     }
 
     @Override
@@ -190,27 +190,27 @@ public class ProxyLoginListener implements ServerLoginPacketListener, TickablePa
         Thread thread = new Thread("User Authenticator #" + UNIQUE_THREAD_ID.incrementAndGet()) {
             @Override
             public void run() {
-                String s1 = Objects.requireNonNull(ProxyLoginListener.this.requestedUsername, "Player name not initialized");
+                String s1 = Objects.requireNonNull(ProxyServerLoginListener.this.requestedUsername, "Player name not initialized");
 
                 try {
-                    ProfileResult profileresult = ProxyLoginListener.this.server.getSessionService().hasJoinedServer(s1, s, this.getAddress());
+                    ProfileResult profileresult = ProxyServerLoginListener.this.server.getSessionService().hasJoinedServer(s1, s, this.getAddress());
                     if (profileresult != null) {
                         GameProfile gameprofile = profileresult.profile();
                         DistributedServerLevels.LOGGER.info("UUID of player {} is {}", gameprofile.getName(), gameprofile.getId());
-                        ProxyLoginListener.this.startClientVerification(gameprofile);
-                    } else if (ProxyLoginListener.this.server.isSingleplayer()) {
+                        ProxyServerLoginListener.this.startClientVerification(gameprofile);
+                    } else if (ProxyServerLoginListener.this.server.isSingleplayer()) {
                         DistributedServerLevels.LOGGER.warn("Failed to verify username but will let them in anyway!");
-                        ProxyLoginListener.this.startClientVerification(UUIDUtil.createOfflineProfile(s1));
+                        ProxyServerLoginListener.this.startClientVerification(UUIDUtil.createOfflineProfile(s1));
                     } else {
-                        ProxyLoginListener.this.disconnect(Component.translatable("multiplayer.disconnect.unverified_username"));
+                        ProxyServerLoginListener.this.disconnect(Component.translatable("multiplayer.disconnect.unverified_username"));
                         DistributedServerLevels.LOGGER.error("Username '{}' tried to join with an invalid session", s1);
                     }
                 } catch (AuthenticationUnavailableException authenticationunavailableexception) {
-                    if (ProxyLoginListener.this.server.isSingleplayer()) {
+                    if (ProxyServerLoginListener.this.server.isSingleplayer()) {
                         DistributedServerLevels.LOGGER.warn("Authentication servers are down but will let them in anyway!");
-                        ProxyLoginListener.this.startClientVerification(UUIDUtil.createOfflineProfile(s1));
+                        ProxyServerLoginListener.this.startClientVerification(UUIDUtil.createOfflineProfile(s1));
                     } else {
-                        ProxyLoginListener.this.disconnect(Component.translatable("multiplayer.disconnect.authservers_down"));
+                        ProxyServerLoginListener.this.disconnect(Component.translatable("multiplayer.disconnect.authservers_down"));
                         DistributedServerLevels.LOGGER.error("Couldn't verify username because servers are unavailable");
                     }
                 }
@@ -218,8 +218,8 @@ public class ProxyLoginListener implements ServerLoginPacketListener, TickablePa
 
             @Nullable
             private InetAddress getAddress() {
-                SocketAddress socketaddress = ProxyLoginListener.this.connection.getRemoteAddress();
-                return ProxyLoginListener.this.server.getPreventProxyConnections() && socketaddress instanceof InetSocketAddress
+                SocketAddress socketaddress = ProxyServerLoginListener.this.connection.getRemoteAddress();
+                return ProxyServerLoginListener.this.server.getPreventProxyConnections() && socketaddress instanceof InetSocketAddress
                         ? ((InetSocketAddress)socketaddress).getAddress()
                         : null;
             }
@@ -238,7 +238,7 @@ public class ProxyLoginListener implements ServerLoginPacketListener, TickablePa
         Validate.validState(this.state == State.PROTOCOL_SWITCHING, "Unexpected login acknowledgement packet");
         this.connection.setupOutboundProtocol(ConfigurationProtocols.CLIENTBOUND);
         CommonListenerCookie commonlistenercookie = CommonListenerCookie.createInitial(Objects.requireNonNull(this.authenticatedProfile), this.transferred);
-        ServerConfigurationPacketListenerImpl serverconfigurationpacketlistenerimpl = new ProxyConfigurationListener(
+        ServerConfigurationPacketListenerImpl serverconfigurationpacketlistenerimpl = new ProxyServerConfigurationListener(
                 this.server, this.connection, commonlistenercookie
         );
         this.connection.setupInboundProtocol(ConfigurationProtocols.SERVERBOUND, serverconfigurationpacketlistenerimpl);

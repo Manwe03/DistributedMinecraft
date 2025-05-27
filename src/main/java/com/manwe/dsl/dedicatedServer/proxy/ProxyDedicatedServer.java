@@ -4,7 +4,6 @@ import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.SetConnectionIntf;
 import com.manwe.dsl.arbiter.ArbiterClient;
 import com.manwe.dsl.config.DSLServerConfigs;
-import com.manwe.dsl.connectionRouting.RegionRouter;
 import com.manwe.dsl.dedicatedServer.worker.LocalPlayerList;
 import com.manwe.dsl.mixin.accessors.DedicatedServerAccessor;
 import com.mojang.datafixers.DataFixer;
@@ -33,14 +32,16 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.BooleanSupplier;
 
 public class ProxyDedicatedServer extends DedicatedServer {
 
     URI arbiterUri = URI.create(DSLServerConfigs.ARBITER_ADDR.get());
     ArbiterClient arbiterClient = new ArbiterClient(arbiterUri);
     private DedicatedPlayerList localRemotePlayerListRef;
-
     private ArbiterClient.ArbiterRes topology;
+
+    private int ticksDebug = 0;
 
     public ProxyDedicatedServer(Thread pServerThread, LevelStorageSource.LevelStorageAccess pStorageSource, PackRepository pPackRepository, WorldStem pWorldStem, DedicatedServerSettings pSettings, DataFixer pFixerUpper, Services pServices, ChunkProgressListenerFactory pProgressListenerFactory) {
         super(pServerThread, pStorageSource, pPackRepository, pWorldStem, pSettings, pFixerUpper, pServices, pProgressListenerFactory);
@@ -145,10 +146,11 @@ public class ProxyDedicatedServer extends DedicatedServer {
         if (!OldUsersConverter.serverReadyAfterUserconversion(this)) {
             return false;
         } else {
-            //Set RemotePlayerList
             if(topology.proxy){
+                //Set RemotePlayerList
                 localRemotePlayerListRef = new RemotePlayerList(this, this.registries(), this.playerDataStorage);
             }else {
+                //Set LocalPlayerList
                 localRemotePlayerListRef = new LocalPlayerList(this, this.registries(), this.playerDataStorage);
             }
             this.setPlayerList(localRemotePlayerListRef);
@@ -201,6 +203,11 @@ public class ProxyDedicatedServer extends DedicatedServer {
             net.neoforged.neoforge.server.ServerLifecycleHooks.handleServerStarting(this);
             return true;
         }
+    }
+
+    @Override
+    public void tickServer(BooleanSupplier pHasTimeLeft) {
+        super.tickServer(pHasTimeLeft);
     }
 
     public boolean isProxy(){

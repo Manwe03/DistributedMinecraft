@@ -1,12 +1,12 @@
 package com.manwe.dsl.connectionRouting;
 
+import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.WorkerTunnel;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.PlayerInitPacket;
-import com.manwe.dsl.dedicatedServer.worker.packets.ProxyWorkerPacket;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import net.minecraft.network.Connection;
-import net.neoforged.neoforge.network.connection.ConnectionType;
+import net.minecraft.network.protocol.Packet;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
@@ -15,28 +15,16 @@ import java.util.UUID;
 
 public class RegionRouter {
 
-    private final Connection clientConnection; //Conexión cliente - proxy, puede servir para devolver paquetes? hay que mirar esto TODO
     private final Map<InetSocketAddress,WorkerTunnel> workerTunnelMap = new HashMap<>();
+    private final Map<UUID,Connection> playerConnections = new HashMap<>();
+    private final EventLoopGroup ioGroup;
 
-    public RegionRouter(Connection clientConnection, ProxyDedicatedServer server, PlayerInitPacket initPacket, ConnectionType connectionType){
-        this.clientConnection = clientConnection;
-        EventLoopGroup ioGroup = clientConnection.channel().eventLoop().parent();  // reutiliza grupo
+    public RegionRouter(ProxyDedicatedServer server){
+        this.ioGroup = new NioEventLoopGroup(1);  //TODO especificar numero correcto de hilos
 
         for (InetSocketAddress address : server.getWorkers()){
-            WorkerTunnel tunnel = new WorkerTunnel(address, ioGroup, server, connectionType, initPacket);
+            WorkerTunnel tunnel = new WorkerTunnel(address,this);
             workerTunnelMap.put(address,tunnel);
-
-            tunnel.send(initPacket).addListener(future -> {
-                if(future.isSuccess()){
-                    System.out.println("PlayerPacket was sent");
-                    //tunnel.setUpVannillaPlayProtocol(); //Change pipeline to vanilla play packet types
-                    //System.out.println("Vanilla pipeline setup");
-                }else {
-                    System.out.println("PlayerPacket was not sent");
-                }
-            });
-
-            //tunnel.send(new ProxyWorkerPacket(null)); //Send wrapper
         }
     }
 
@@ -46,16 +34,32 @@ public class RegionRouter {
         return workerTunnelMap.values().stream().findFirst().orElseThrow();
     }
 
-    /**
-     * Should be called when a player disconnects from the proxy
-     */
-    public void disconectWorkerTunnels(){
-        //TODO mandar un disconnection package a todos los workers para que gestionen la desconexión
-        /*
-        workerTunnelMap.values().forEach(workerTunnel -> {
+    public void addOutgoingConnection(UUID playerID, Connection connection){
+        playerConnections.put(playerID,connection);
+    }
 
+    public Connection getOutgoingConnection(UUID playerID){
+        return playerConnections.get(playerID);
+    }
+
+    public void broadCast(Packet<?> packet){
+        workerTunnelMap.values().forEach(workerTunnel -> {
+            workerTunnel.send(packet);
         });
-         */
+    }
+
+    public void returnToClient(UUID playerID, Packet<?> packet){
+        Connection conn =  playerConnections.get(playerID);
+        if(conn == null) {
+            DistributedServerLevels.LOGGER.warn("ServerPlayer with UUID "+playerID+" does not have a Client <-> Proxy connection.");
+        } else {
+            //packetList.forEach(conn::send);
+            conn.send(packet);
+        }
+    }
+
+    public EventLoopGroup getEventLoopGroup(){
+        return ioGroup;
     }
 
     public Map<InetSocketAddress,WorkerTunnel> getWorkerMap(){

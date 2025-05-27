@@ -10,7 +10,8 @@
     "accessors.DedicatedServerAccessor",
     "accessors.MinecraftServerAccessor",
     "accessors.PlayerListAccessor",
-    "accessors.ServerConnectionListenerAccessor"
+    "accessors.ServerConnectionListenerAccessor",
+    "accessors.ServerGamePacketListenerImplAccessor"
   ],
   "client": [
   ]

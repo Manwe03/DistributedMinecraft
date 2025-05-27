@@ -10,18 +10,20 @@ import net.minecraft.network.protocol.PacketType;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.network.CommonListenerCookie;
+import net.neoforged.neoforge.network.connection.ConnectionType;
 
 import java.util.UUID;
 
-public class PlayerInitPacket implements Packet<WorkerListener> {
-    public static final StreamCodec<FriendlyByteBuf, PlayerInitPacket> STREAM_CODEC = Packet.codec(
-            PlayerInitPacket::write, PlayerInitPacket::new
+public class WorkerBoundPlayerInitPacket implements Packet<WorkerListener> {
+    public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerInitPacket> STREAM_CODEC = Packet.codec(
+            WorkerBoundPlayerInitPacket::write, WorkerBoundPlayerInitPacket::new
     );
 
     private final GameProfile gameProfile;
     private final ClientInformation clientInformation;
 
-    public PlayerInitPacket(GameProfile gameProfile, ClientInformation clientInformation) {
+    public WorkerBoundPlayerInitPacket(GameProfile gameProfile, ClientInformation clientInformation) {
         this.gameProfile = gameProfile;
         this.clientInformation = clientInformation;
     }
@@ -32,7 +34,7 @@ public class PlayerInitPacket implements Packet<WorkerListener> {
         this.clientInformation.write(buf);
     }
 
-    public PlayerInitPacket(FriendlyByteBuf buf) {
+    public WorkerBoundPlayerInitPacket(FriendlyByteBuf buf) {
         UUID uuid = buf.readUUID();
         String name = buf.readUtf(255);
         this.gameProfile = new GameProfile(uuid,name);
@@ -41,6 +43,10 @@ public class PlayerInitPacket implements Packet<WorkerListener> {
 
     public ServerPlayer rebuildServerPlayer(MinecraftServer server) {
         return new ServerPlayer(server, server.overworld(), this.gameProfile, this.clientInformation);
+    }
+
+    public CommonListenerCookie rebuildCookie(){
+        return new CommonListenerCookie(this.gameProfile, 0, this.clientInformation, false, ConnectionType.OTHER);
     }
 
     @Override

@@ -13,15 +13,15 @@ import net.minecraft.network.protocol.status.StatusProtocols;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerStatusPacketListenerImpl;
 
-public class ProxyHandshakeListener implements ServerHandshakePacketListener {
+public class ProxyServerHandshakeListener implements ServerHandshakePacketListener {
     private static final Component IGNORE_STATUS_REASON = Component.translatable("disconnect.ignoring_status_request");
     private final MinecraftServer server;
     private final Connection connection;
 
-    public ProxyHandshakeListener(MinecraftServer pServer, Connection pConnection) {
+    public ProxyServerHandshakeListener(MinecraftServer pServer, Connection pConnection) {
         this.server = pServer;
         this.connection = pConnection;
-        System.out.println("ProxyHandshakeListener Created");
+        System.out.println("ProxyServerHandshakeListener Created");
     }
 
     /**
@@ -70,7 +70,7 @@ public class ProxyHandshakeListener implements ServerHandshakePacketListener {
             this.connection.send(new ClientboundLoginDisconnectPacket(component));
             this.connection.disconnect(component);
         } else {
-            this.connection.setupInboundProtocol(LoginProtocols.SERVERBOUND, new ProxyLoginListener(this.server, this.connection, pTransferred));
+            this.connection.setupInboundProtocol(LoginProtocols.SERVERBOUND, new ProxyServerLoginListener(this.server, this.connection, pTransferred));
         }
     }
 

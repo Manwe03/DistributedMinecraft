@@ -20,22 +20,22 @@ import net.minecraft.server.players.PlayerList;
 /**
  * Stack de listener vanilla
  * Handshake -> Login -> Configuration -> Game
- * ProxyHandshakeListener -> Login -> ProxyConfigurationListener -> Game
+ * ProxyServerHandshakeListener -> Login -> ProxyServerConfigurationListener -> Game
  *
  * Manda a cada worker el inicio de su connexion, manda la información del ServerPlayer
  */
-public class ProxyConfigurationListener extends ServerConfigurationPacketListenerImpl {
+public class ProxyServerConfigurationListener extends ServerConfigurationPacketListenerImpl {
 
     private static final Component DISCONNECT_REASON_INVALID_DATA = Component.translatable("multiplayer.disconnect.invalid_player_data");
 
     private final GameProfile localGameProfile; //Read only
     private final ClientInformation localClientInformation; //Read only
 
-    public ProxyConfigurationListener(MinecraftServer pServer, Connection pConnection, CommonListenerCookie pCookie) {
+    public ProxyServerConfigurationListener(MinecraftServer pServer, Connection pConnection, CommonListenerCookie pCookie) {
         super(pServer, pConnection, pCookie);
         localGameProfile = pCookie.gameProfile();
         localClientInformation = pCookie.clientInformation();
-        System.out.println("ProxyConfigurationListener Created");
+        System.out.println("ProxyServerConfigurationListener Created");
     }
 
     @Override

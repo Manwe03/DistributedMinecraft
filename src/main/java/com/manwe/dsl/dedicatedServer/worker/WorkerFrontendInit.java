@@ -1,7 +1,6 @@
 package com.manwe.dsl.dedicatedServer.worker;
 
 import com.manwe.dsl.dedicatedServer.InternalGameProtocols;
-import com.manwe.dsl.dedicatedServer.proxy.back.ProxyWorkerConnection;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyServerConnectionListener;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListenerImpl;
@@ -32,17 +31,17 @@ public class WorkerFrontendInit extends ChannelInitializer<Channel> {
         //Codecs
         pipeline.addLast("splitter", new Varint21FrameDecoder(null))
                 .addLast(new FlowControlHandler())
-                .addLast("decoder", new PacketDecoder<>(InternalGameProtocols.SERVERBOUND)) //Debería decodificar los paquetes PlayerInitPacket
+                .addLast("decoder", new PacketDecoder<>(InternalGameProtocols.SERVERBOUND)) //Debería decodificar los paquetes WorkerBoundPlayerInitPacket
                 .addLast("prepender", new Varint21LengthFieldPrepender())
-                .addLast("outbound_config", new PacketEncoder<>(InternalGameProtocols.CLIENTBOUND));
+                .addLast("encoder", new PacketEncoder<>(InternalGameProtocols.CLIENTBOUND));
         //Conexión
-        Connection connection = new ProxyWorkerConnection(PacketFlow.SERVERBOUND);
-        //Añadir a la lista
+        Connection connection = new WorkerConnection(PacketFlow.CLIENTBOUND);
+        //Añadir a la lista TODO ver si este registro es necesario seguramente si, hay que añadir a las connections las falsas
         listener.getConnections().add(connection);
         //Añadir la pipeline
         connection.configurePacketHandler(pipeline);
         //Añadir el listener
-        ((ConnectionAccessor)connection).setPacketListener(new WorkerListenerImpl(server,connection));
+        ((ConnectionAccessor) connection).setPacketListener(new WorkerListenerImpl(server,pipeline));
     }
 
 }

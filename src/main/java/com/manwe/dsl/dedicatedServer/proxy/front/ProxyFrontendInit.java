@@ -2,7 +2,7 @@ package com.manwe.dsl.dedicatedServer.proxy.front;
 
 import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyServerConnectionListener;
-import com.manwe.dsl.dedicatedServer.proxy.front.listeners.ProxyHandshakeListener;
+import com.manwe.dsl.dedicatedServer.proxy.front.listeners.ProxyServerHandshakeListener;
 import io.netty.channel.*;
 import io.netty.handler.timeout.ReadTimeoutHandler;
 import net.minecraft.network.Connection;
@@ -37,6 +37,6 @@ public class ProxyFrontendInit extends ChannelInitializer<Channel> {
         listener.getConnections().add(conn);
         conn.configurePacketHandler(pl);
 
-        conn.setListenerForServerboundHandshake(new ProxyHandshakeListener(server, conn));
+        conn.setListenerForServerboundHandshake(new ProxyServerHandshakeListener(server, conn));
     }
 }
