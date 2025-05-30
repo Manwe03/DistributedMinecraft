@@ -2,42 +2,33 @@ package com.manwe.dsl.dedicatedServer.proxy.back.packets;
 
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.handler.flow.FlowControlHandler;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.*;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.*;
-import net.minecraft.network.protocol.common.ClientCommonPacketListener;
-import net.minecraft.network.protocol.common.ClientboundDisconnectPacket;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBundlePacket;
 import net.minecraft.network.protocol.game.GameProtocols;
-import net.minecraft.network.protocol.game.ServerGamePacketListener;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.profiling.jfr.JvmProfiler;
 import net.neoforged.neoforge.network.connection.ConnectionType;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
-public class WorkerProxyPacket implements Packet<ProxyListener> {
+public class ProxyBoundContainerPacket implements Packet<ProxyListener> {
 
     private final UUID playerId;
     private final Packet<? super ClientGamePacketListener> payload;
     private RegistryAccess workerRegistryAccess = null; //Might be null
 
-    public static final StreamCodec<FriendlyByteBuf, WorkerProxyPacket> STREAM_CODEC = Packet.codec(
-            WorkerProxyPacket::write, WorkerProxyPacket::new
+    public static final StreamCodec<FriendlyByteBuf, ProxyBoundContainerPacket> STREAM_CODEC = Packet.codec(
+            ProxyBoundContainerPacket::write, ProxyBoundContainerPacket::new
     );
 
-    public WorkerProxyPacket(UUID playerId, Packet<ClientGamePacketListener> payload, RegistryAccess workerRegistryAccess) {
+    public ProxyBoundContainerPacket(UUID playerId, Packet<ClientGamePacketListener> payload, RegistryAccess workerRegistryAccess) {
         this.playerId = playerId;
         this.payload = payload;
         this.workerRegistryAccess = workerRegistryAccess;
@@ -47,7 +38,7 @@ public class WorkerProxyPacket implements Packet<ProxyListener> {
     /*                        --------  L E E R  --------                     */
     /* ====================================================================== */
 
-    public WorkerProxyPacket(FriendlyByteBuf buf) {
+    public ProxyBoundContainerPacket(FriendlyByteBuf buf) {
         MinecraftServer currentServer = ServerLifecycleHooks.getCurrentServer();
         if(currentServer == null) throw new RuntimeException("MinecraftServer is null");
 

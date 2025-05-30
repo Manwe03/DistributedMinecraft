@@ -2,18 +2,14 @@ package com.manwe.dsl.dedicatedServer.worker.packets;
 
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
-import com.mojang.serialization.Decoder;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.flow.FlowControlHandler;
-import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.*;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketType;
 import net.minecraft.network.protocol.common.ServerCommonPacketListener;
-import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.GameProtocols;
 import net.minecraft.network.protocol.game.ServerGamePacketListener;
 import net.minecraft.server.MinecraftServer;
@@ -22,21 +18,21 @@ import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import java.util.UUID;
 
-public class ProxyWorkerPacket implements Packet<WorkerListener> {
+public class WorkerBoundContainerPacket implements Packet<WorkerListener> {
 
     private final UUID playerId;
     private final Packet<? extends ServerCommonPacketListener> payload;
 
-    public static final StreamCodec<FriendlyByteBuf, ProxyWorkerPacket> STREAM_CODEC = Packet.codec(
-            ProxyWorkerPacket::write, ProxyWorkerPacket::new
+    public static final StreamCodec<FriendlyByteBuf, WorkerBoundContainerPacket> STREAM_CODEC = Packet.codec(
+            WorkerBoundContainerPacket::write, WorkerBoundContainerPacket::new
     );
 
-    public ProxyWorkerPacket(UUID playerId, Packet<? extends ServerCommonPacketListener> payload){
+    public WorkerBoundContainerPacket(UUID playerId, Packet<? extends ServerCommonPacketListener> payload){
         this.playerId = playerId;
         this.payload = payload;
     }
 
-    private ProxyWorkerPacket(FriendlyByteBuf buf) {
+    private WorkerBoundContainerPacket(FriendlyByteBuf buf) {
         this.playerId = buf.readUUID();
 
         int length = buf.readableBytes();

@@ -1,9 +1,10 @@
 package com.manwe.dsl.dedicatedServer.proxy;
 
 import com.manwe.dsl.DistributedServerLevels;
+import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.connectionRouting.RegionRouter;
 import com.manwe.dsl.dedicatedServer.proxy.front.listeners.ProxyServerGameListener;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.WorkerBoundPlayerInitPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerInitPacket;
 import com.manwe.dsl.mixin.accessors.PlayerListAccessor;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Dynamic;
@@ -96,7 +97,16 @@ public class RemotePlayerList extends DedicatedPlayerList {
         this.router.addOutgoingConnection(pPlayer.getUUID(),pConnection);
         //Create init message
         WorkerBoundPlayerInitPacket initPacket = new WorkerBoundPlayerInitPacket(pPlayer.getGameProfile(), pPlayer.clientInformation());
-        this.router.broadCast(initPacket);
+
+        //TODO guardar la posición de los jugadores al desconectarse para enrutarlos con el servidor correcto en caso de reinicio
+        //If this player has no worker set
+        if(!this.router.hasTunnel(pPlayer.getUUID())){
+            //Set tunnel worker in default spawn position
+            System.out.println("This player has no tunnel set defaulting to server spawn");
+            this.router.transferClientToWorker(pPlayer.getUUID(), RegionRouter.defaultSpawnWorkerId(getServer(), DSLServerConfigs.WORKER_SIZE.get(),DSLServerConfigs.REGION_SIZE.get()));
+        }
+        this.router.route(pPlayer.getUUID()).send(initPacket); //Send init to worker
+
         DistributedServerLevels.LOGGER.info("Broadcast player login to all workers");
 
         ProxyServerGameListener servergamepacketlistenerimpl = new ProxyServerGameListener(proxyDedicatedServer, pConnection, pPlayer, pCookie, this.router);

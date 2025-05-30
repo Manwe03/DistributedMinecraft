@@ -1,4 +1,4 @@
-package com.manwe.dsl.dedicatedServer.proxy.back.packets;
+package com.manwe.dsl.dedicatedServer.worker.packets;
 
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;

@@ -3,6 +3,7 @@ package com.manwe.dsl.dedicatedServer.proxy;
 import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.SetConnectionIntf;
 import com.manwe.dsl.arbiter.ArbiterClient;
+import com.manwe.dsl.arbiter.ConnectionInfo;
 import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.dedicatedServer.worker.LocalPlayerList;
 import com.manwe.dsl.mixin.accessors.DedicatedServerAccessor;
@@ -32,6 +33,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 public class ProxyDedicatedServer extends DedicatedServer {
@@ -40,8 +42,6 @@ public class ProxyDedicatedServer extends DedicatedServer {
     ArbiterClient arbiterClient = new ArbiterClient(arbiterUri);
     private DedicatedPlayerList localRemotePlayerListRef;
     private ArbiterClient.ArbiterRes topology;
-
-    private int ticksDebug = 0;
 
     public ProxyDedicatedServer(Thread pServerThread, LevelStorageSource.LevelStorageAccess pStorageSource, PackRepository pPackRepository, WorldStem pWorldStem, DedicatedServerSettings pSettings, DataFixer pFixerUpper, Services pServices, ChunkProgressListenerFactory pProgressListenerFactory) {
         super(pServerThread, pStorageSource, pPackRepository, pWorldStem, pSettings, pFixerUpper, pServices, pProgressListenerFactory);
@@ -104,7 +104,7 @@ public class ProxyDedicatedServer extends DedicatedServer {
         try {
             topology = arbiterClient.fetch();
             this.setPort(topology.port);
-            System.out.println("From Arbiter: "+topology.port +" : "+topology.proxy);
+            System.out.println("From Arbiter: "+topology.port);
         } catch (Exception ex) {
             DistributedServerLevels.LOGGER.error("Unexpected Error",ex);
             throw new RuntimeException("Arbiter unavailable cannot fetch port and role");
@@ -146,7 +146,7 @@ public class ProxyDedicatedServer extends DedicatedServer {
         if (!OldUsersConverter.serverReadyAfterUserconversion(this)) {
             return false;
         } else {
-            if(topology.proxy){
+            if(DSLServerConfigs.IS_PROXY.get()){
                 //Set RemotePlayerList
                 localRemotePlayerListRef = new RemotePlayerList(this, this.registries(), this.playerDataStorage);
             }else {
@@ -211,11 +211,17 @@ public class ProxyDedicatedServer extends DedicatedServer {
     }
 
     public boolean isProxy(){
-        return topology.proxy;
+        return DSLServerConfigs.IS_PROXY.get();
     }
 
-    public List<InetSocketAddress> getWorkers(){
-        return topology.connections;
+    /**
+     * Returns the Address of the available workers. Returns null if this is a worker
+     */
+    public List<ConnectionInfo> getWorkers(){
+        if(DSLServerConfigs.IS_PROXY.get()){
+            return topology.connections;
+        }
+        return null;
     }
 
     public PlayerList getSpecificPlayerList(){

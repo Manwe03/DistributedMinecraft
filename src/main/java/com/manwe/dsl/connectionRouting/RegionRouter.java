@@ -1,59 +1,127 @@
 package com.manwe.dsl.connectionRouting;
 
 import com.manwe.dsl.DistributedServerLevels;
+import com.manwe.dsl.arbiter.ConnectionInfo;
+import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.WorkerTunnel;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.level.chunk.storage.RegionFile;
+import net.minecraft.world.phys.Vec2;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 public class RegionRouter {
 
-    private final Map<InetSocketAddress,WorkerTunnel> workerTunnelMap = new HashMap<>();
-    private final Map<UUID,Connection> playerConnections = new HashMap<>();
+    /**
+     * Holds assigned worker for each player
+     * Holds tunnels to each worker (inbound)
+     * Holds connection to each client (outbound)
+     */
+
+    //TODO modificar en el momento que se solicite un transfer
+    //UUID,Tunnel for each client
+    private final Map<UUID,WorkerTunnel> playerWorkerTunnels = new HashMap<>();
+    //ID,Tunnel for each worker
+    private final Map<Integer,WorkerTunnel> workerTunnels = new HashMap<>();
+    //UUID, Connection for each client
+    private final Map<UUID,Connection> playerOutboundConnections = new HashMap<>();
     private final EventLoopGroup ioGroup;
+
+    //Topology information
+    private final int workerSize = DSLServerConfigs.WORKER_SIZE.get();
+    private final int regionSize = DSLServerConfigs.REGION_SIZE.get();
 
     public RegionRouter(ProxyDedicatedServer server){
         this.ioGroup = new NioEventLoopGroup(1);  //TODO especificar numero correcto de hilos
 
-        for (InetSocketAddress address : server.getWorkers()){
-            WorkerTunnel tunnel = new WorkerTunnel(address,this);
-            workerTunnelMap.put(address,tunnel);
+        List<ConnectionInfo> workers = server.getWorkers();
+
+        //Create a tunnel for each worker
+        for(ConnectionInfo connection : workers){
+            WorkerTunnel tunnel = new WorkerTunnel(new InetSocketAddress(connection.ip(),connection.port()),this);
+            workerTunnels.put(connection.id(),tunnel);
         }
     }
 
-    public WorkerTunnel route(double x, double z){
-        //Debera devolver el worker correcto dependiendo de la posición
-        //De momento el primero
-        return workerTunnelMap.values().stream().findFirst().orElseThrow();
+    /**
+     * @param playerID current player id of the incoming packets
+     * @param proxyServer reference of the proxyServer
+     * @return tunnel to the corresponding worker
+     */
+    public WorkerTunnel route(UUID playerID){
+        //Return the current tunnel for this player
+        WorkerTunnel tunnel = playerWorkerTunnels.get(playerID);
+        if(tunnel != null) return tunnel;
+        else throw new RuntimeException("Player has no tunnel to any worker");
+    }
+
+    /**
+     * Transfers this player to the specified worker
+     * @param playerId UUID of the player to transfer
+     * @param workerId ID of the worker the player is being transferred
+     * @return tunnel to the worker with workerId
+     */
+    public WorkerTunnel transferClientToWorker(UUID playerId, int workerId){
+        WorkerTunnel newTunnel = workerTunnels.get(workerId);
+        playerWorkerTunnels.put(playerId,newTunnel);//Set this player to this tunnel. All route() operations now point to this tunnel
+        return newTunnel;
+    }
+
+    /**
+     * @param playerId
+     * @return If this player has a tunnel with some worker already registered
+     */
+    public boolean hasTunnel(UUID playerId){
+        return playerWorkerTunnels.containsKey(playerId);
+    }
+
+    /**
+     * Method for handling packets bound to a position not to the client ej: (ServerboundPlayerActionPacket)
+     * @param x position in block coordinates
+     * @param z position in block coordinates
+     * @return Tunnel to the worker that handles this position
+     */
+    public WorkerTunnel route(int x, int z){
+        return workerTunnels.get(computeWorkerId(x,z,DSLServerConfigs.WORKER_SIZE.get(),DSLServerConfigs.REGION_SIZE.get()));
+    }
+
+    /**
+     * Routes the message to the worker with this id. No side ejects
+     * @return tunnel
+     */
+    public WorkerTunnel route(int workerID){
+        return workerTunnels.get(workerID);
     }
 
     public void addOutgoingConnection(UUID playerID, Connection connection){
-        playerConnections.put(playerID,connection);
+        playerOutboundConnections.put(playerID,connection);
     }
 
     public Connection getOutgoingConnection(UUID playerID){
-        return playerConnections.get(playerID);
+        return playerOutboundConnections.get(playerID);
     }
 
     public void broadCast(Packet<?> packet){
-        workerTunnelMap.values().forEach(workerTunnel -> {
+        workerTunnels.values().forEach(workerTunnel -> {
             workerTunnel.send(packet);
         });
     }
 
     public void returnToClient(UUID playerID, Packet<?> packet){
-        Connection conn =  playerConnections.get(playerID);
+        Connection conn =  playerOutboundConnections.get(playerID);
         if(conn == null) {
             DistributedServerLevels.LOGGER.warn("ServerPlayer with UUID "+playerID+" does not have a Client <-> Proxy connection.");
         } else {
-            //packetList.forEach(conn::send);
             conn.send(packet);
         }
     }
@@ -62,7 +130,44 @@ public class RegionRouter {
         return ioGroup;
     }
 
-    public Map<InetSocketAddress,WorkerTunnel> getWorkerMap(){
-        return this.workerTunnelMap;
+    public Map<Integer,WorkerTunnel> getWorkerTunnels(){
+        return this.workerTunnels;
+    }
+
+    public static int computeWorkerId(double x, double z, int nWorkers, int regionSize){
+        return computeWorkerId((int) Math.floor(x),(int) Math.floor(z),nWorkers,regionSize);
+    }
+
+    /**
+     * @return The ID of the server allocated to this position (in block coordinates)
+     */
+    public static int computeWorkerId(int x, int z, int nWorkers, int regionSize){
+        if(nWorkers == 1) return 1;
+        if (nWorkers == 2) return z >= 0 ? 1 : 2;
+        if (nWorkers % 4 != 0) throw new RuntimeException("Invalid number of workers n:"+nWorkers+". Valid numbers are 1, 2 or any other number divisible by 4");
+
+        //To file region cords 512*512
+        int regionX = x >> 9;
+        int regionZ = z >> 9;
+
+        int nWorkersCuad = nWorkers/4;
+        int quad = (regionX >= 0 ? 0 : 2) + (regionZ < 0 ? 1 : 0);
+        int base = quad * nWorkersCuad; //base id of the quad
+
+        //Longest cord in abs
+        int maxSide = Math.max(Math.abs(regionX),Math.abs(regionZ));
+
+        int nRegions = maxSide / regionSize;
+        int offset = (nRegions == 0) ? 1 : (int) Math.floor(Math.log(nRegions) / Math.log(2)) + 2;
+
+        return base + offset;
+    }
+
+    /**
+     * @return The ID of the server that manages the spawn area
+     */
+    public static int defaultSpawnWorkerId(MinecraftServer server, int nWorkers, int regionSize){
+        BlockPos pos = server.overworld().getSharedSpawnPos();
+        return computeWorkerId(pos.getX(),pos.getZ(),nWorkers,regionSize);
     }
 }

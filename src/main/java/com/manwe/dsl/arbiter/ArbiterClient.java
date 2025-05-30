@@ -3,6 +3,8 @@ package com.manwe.dsl.arbiter;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.manwe.dsl.config.DSLServerConfigs;
+import org.checkerframework.checker.units.qual.C;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -10,8 +12,11 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class ArbiterClient {
 
@@ -24,9 +29,12 @@ public final class ArbiterClient {
     }
 
     public ArbiterRes fetch() throws IOException, InterruptedException {
+        //Send to the arbiter this worker id, if proxy send 0 (this value is ignored)
+        ByteBuffer buffer = ByteBuffer.allocate(4).putInt(DSLServerConfigs.IS_PROXY.get() ? 0 : DSLServerConfigs.WORKER_ID.get());
+
         HttpRequest req = HttpRequest.newBuilder(endpoint.resolve("/allocate")) //Request to /allocate endpoint
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.noBody()) //Empty body
+                .POST(HttpRequest.BodyPublishers.ofByteArray(buffer.array())) //Empty body
                 .build();
         HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
         if (res.statusCode() != 200) throw new IOException("Arbiter returned " + res.statusCode());
@@ -35,43 +43,25 @@ public final class ArbiterClient {
 
         JsonObject json = GSON.fromJson(res.body(), JsonObject.class);
         int port = json.get("port").getAsInt();
-        boolean proxy = json.get("proxy").getAsBoolean();
 
-        List<InetSocketAddress> connections = new ArrayList<>();
-        if (proxy && json.has("connections")) {
+        List<ConnectionInfo>  connections = new ArrayList<>();
+        if (DSLServerConfigs.IS_PROXY.get() && json.has("connections")) { //If this is the proxy get the map
             JsonArray connArray = json.getAsJsonArray("connections");
             for (int i = 0; i < connArray.size(); i++) {
                 JsonObject entry = connArray.get(i).getAsJsonObject();
-                String ip = entry.get("ip").getAsString();
-                int assignedPort = entry.get("port").getAsInt();
-                connections.add(new InetSocketAddress(ip, assignedPort));
+                connections.add(ConnectionInfo.read(entry));
             }
         }
 
-        return new ArbiterRes(port, proxy, connections);
-    }
-
-    public static void main(String[] args) throws IOException, InterruptedException {
-        URI uri = URI.create("http://localhost:8080");
-
-        ArbiterRes res = new ArbiterClient(uri).fetch();
-        System.out.println("Assigned port "+ res.port);
-        if (res.proxy) {
-            System.out.println("Running in proxy mode. Connection list:");
-            for (InetSocketAddress info : res.connections) {
-                System.out.println("- " + info.getHostName() + ":" + info.getPort());
-            }
-        }
+        return new ArbiterRes(port, connections);
     }
 
     public static class ArbiterRes {
         public int port;
-        public boolean proxy;
-        public List<InetSocketAddress> connections;
+        public List<ConnectionInfo> connections;
 
-        public ArbiterRes(int port, boolean proxy, List<InetSocketAddress> connections){
+        public ArbiterRes(int port, List<ConnectionInfo> connections){
             this.port = port;
-            this.proxy = proxy;
             this.connections = connections;
         }
     }

@@ -1,5 +1,6 @@
 package com.manwe.dsl.dedicatedServer.worker;
 
+import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.dedicatedServer.InternalGameProtocols;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyServerConnectionListener;
@@ -22,8 +23,6 @@ public class WorkerFrontendInit extends ChannelInitializer<Channel> {
 
     @Override
     protected void initChannel(Channel ch) {
-        System.out.println("WorkerInit");
-
         try {ch.config().setOption(ChannelOption.TCP_NODELAY, true);} catch (ChannelException ignored) {}
 
         //Pipeline
@@ -42,6 +41,8 @@ public class WorkerFrontendInit extends ChannelInitializer<Channel> {
         connection.configurePacketHandler(pipeline);
         //Añadir el listener
         ((ConnectionAccessor) connection).setPacketListener(new WorkerListenerImpl(server,pipeline));
+
+        DistributedServerLevels.LOGGER.info("Worker Initialized Waiting for incoming packets");
     }
 
 }

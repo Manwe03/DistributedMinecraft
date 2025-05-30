@@ -1,14 +1,12 @@
 package com.manwe.dsl.dedicatedServer.worker;
 
 import com.manwe.dsl.DistributedServerLevels;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.WorkerProxyPacket;
-import io.netty.channel.ChannelPipeline;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundContainerPacket;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.Connection;
 import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
-import net.minecraft.network.protocol.common.ClientboundKeepAlivePacket;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,13 +25,13 @@ public class ProxyPlayerConnection extends Connection {
 
     /**
      * <img src="https://i.imgur.com/zXZslJX.jpeg">
-     * <P>Wrap all messages in the WorkerProxyPacket to be sent through the same ChannelPipeline</P>
+     * <P>Wrap all messages in the ProxyBoundContainerPacket to be sent through the same ChannelPipeline</P>
      * <P>All packets should be of type Packet<ClientGamePacketListener></P>
      */
     @Override
     public void send(Packet<?> pPacket, @Nullable PacketSendListener pListener, boolean pFlush) {
         try {
-            WorkerProxyPacket newPacket = new WorkerProxyPacket(playerId, (Packet<ClientGamePacketListener>) pPacket, this.workerRegistryAccess);
+            ProxyBoundContainerPacket newPacket = new ProxyBoundContainerPacket(playerId, (Packet<ClientGamePacketListener>) pPacket, this.workerRegistryAccess);
 
             super.send(newPacket, pListener, pFlush);
         }catch (Exception e){

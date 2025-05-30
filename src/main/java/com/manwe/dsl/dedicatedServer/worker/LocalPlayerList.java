@@ -1,18 +1,16 @@
 package com.manwe.dsl.dedicatedServer.worker;
 
 import com.manwe.dsl.DistributedServerLevels;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.WorkerProxyPacket;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerGamePacketListenerImpl;
-import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
 import com.manwe.dsl.mixin.accessors.PlayerListAccessor;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Dynamic;
 import net.minecraft.core.LayeredRegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.game.*;
-import net.minecraft.network.protocol.status.ServerStatus;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.RegistryLayer;
 import net.minecraft.server.dedicated.DedicatedPlayerList;
@@ -20,17 +18,16 @@ import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
-import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.PlayerDataStorage;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -159,5 +156,53 @@ public class LocalPlayerList extends DedicatedPlayerList {
 
         pPlayer.initInventoryMenu(); //TODO Hay que gestionar el inventario en el worker?
         net.neoforged.neoforge.event.EventHooks.firePlayerLoggedIn( pPlayer );
+    }
+
+    public void transferExistingPlayer(ServerPlayer pPlayer, CompoundTag nbt){
+
+        /* ---------- 1. Determinar el mundo destino ---------- */
+        ResourceKey<Level> key = DimensionType
+                .parseLegacy(new Dynamic<>(NbtOps.INSTANCE, nbt.get("Dimension")))
+                .resultOrPartial(DistributedServerLevels.LOGGER::error)
+                .orElse(Level.OVERWORLD);
+
+        ServerLevel level = Objects.requireNonNullElseGet(this.getServer().getLevel(key), this.getServer()::overworld); // fallback → overworld
+
+        pPlayer.setServerLevel(level); // vincula la entidad al Level correcto
+
+        ((PlayerListAccessor) this).getPlayers().add(pPlayer);
+        ((PlayerListAccessor) this).getPlayersByUUID().put(pPlayer.getUUID(), pPlayer);
+
+        level.addNewPlayer(pPlayer);
+        pPlayer.initInventoryMenu(); //TODO Hay que gestionar el inventario en el worker?
+
+        /* ---------- 3. Restaurar montura, si la hubiera ---------- */
+        if (nbt.contains("RootVehicle", Tag.TAG_COMPOUND)) {
+            CompoundTag rv = nbt.getCompound("RootVehicle");
+            Entity mount = EntityType.loadEntityRecursive(rv.getCompound("Entity"), level,
+                    e -> level.addWithUUID(e) ? e : null);
+
+            if (mount != null) {
+                UUID attach = rv.hasUUID("Attach") ? rv.getUUID("Attach") : null;
+                Entity target = mount;                         // por defecto la raíz
+                if (attach != null && !mount.getUUID().equals(attach)) {
+                    target = null;
+                    for (Entity e : mount.getIndirectPassengers()) {  // ← bucle, no stream()
+                        if (e.getUUID().equals(attach)) {
+                            target = e;
+                            break;
+                        }
+                    }
+                }
+
+                if (target != null) pPlayer.startRiding(target, true);
+                else {                         // fallo → limpiar restos fantasma
+                    mount.discard();
+                    mount.getIndirectPassengers().forEach(Entity::discard);
+                    DistributedServerLevels.LOGGER.warn("Couldn't reattach mount for {}", pPlayer.getName().getString());
+                }
+            }
+        }
+        this.sendPlayerPermissionLevel(pPlayer);// TODO ver esto
     }
 }
