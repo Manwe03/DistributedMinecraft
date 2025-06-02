@@ -4,6 +4,7 @@ import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundContainerPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundSavePlayerStatePacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerInitPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
@@ -28,6 +29,7 @@ public class InternalPacketTypes {
     public static final PacketType<ProxyBoundContainerPacket> WORKER_PROXY_PACKET_CONTAINER = createClientbound("proxy_packet_container");
     public static final PacketType<ProxyBoundPlayerTransferPacket> WORKER_PROXY_PLAYER_TRANSFER = createClientbound("proxy_player_transfer");
     public static final PacketType<ProxyBoundPlayerTransferACKPacket> WORKER_PROXY_PLAYER_TRANSFER_ACK = createClientbound("proxy_player_transfer_ack");
+    public static final PacketType<ProxyBoundSavePlayerStatePacket> WORKER_PROXY_SAVE_PLAYER_STATE = createClientbound("proxy_save_player_state");
 
     private static <T extends Packet<ProxyListener>> PacketType<T> createClientbound(String pId) {
         return new PacketType<>(PacketFlow.CLIENTBOUND, ResourceLocation.withDefaultNamespace(pId));

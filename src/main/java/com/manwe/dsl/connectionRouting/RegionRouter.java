@@ -48,7 +48,7 @@ public class RegionRouter {
 
         //Create a tunnel for each worker
         for(ConnectionInfo connection : workers){
-            WorkerTunnel tunnel = new WorkerTunnel(new InetSocketAddress(connection.ip(),connection.port()),this);
+            WorkerTunnel tunnel = new WorkerTunnel(new InetSocketAddress(connection.ip(),connection.port()),this,server);
             workerTunnels.put(connection.id(),tunnel);
         }
     }

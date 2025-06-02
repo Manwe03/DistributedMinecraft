@@ -3,6 +3,7 @@ package com.manwe.dsl.dedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundSavePlayerStatePacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerInitPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundContainerPacket;
@@ -30,6 +31,7 @@ public class InternalGameProtocols {
                       consumer.addPacket(InternalPacketTypes.WORKER_PROXY_PACKET_CONTAINER, ProxyBoundContainerPacket.STREAM_CODEC)
                               .addPacket(InternalPacketTypes.WORKER_PROXY_PLAYER_TRANSFER, ProxyBoundPlayerTransferPacket.STREAM_CODEC)
                               .addPacket(InternalPacketTypes.WORKER_PROXY_PLAYER_TRANSFER_ACK, ProxyBoundPlayerTransferACKPacket.STREAM_CODEC)
+                              .addPacket(InternalPacketTypes.WORKER_PROXY_SAVE_PLAYER_STATE, ProxyBoundSavePlayerStatePacket.STREAM_CODEC)
     );
 
     public static final ProtocolInfo<ProxyListener> CLIENTBOUND = CLIENTBOUND_TEMPLATE.bind(FriendlyByteBuf::new);

@@ -4,6 +4,7 @@ import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.connectionRouting.RegionRouter;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferACKPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundSavePlayerStatePacket;
 import com.manwe.dsl.dedicatedServer.worker.LocalPlayerList;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerInitPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerDisconnectPacket;
@@ -28,10 +29,7 @@ import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.util.Mth;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class WorkerListenerImpl implements WorkerListener {
@@ -40,6 +38,8 @@ public class WorkerListenerImpl implements WorkerListener {
     private final ChannelPipeline sharedPipeline;
     private final Map<UUID, Connection> playerConnections = new ConcurrentHashMap<>();
     private final Set<UUID> transferring = new HashSet<>(); //All player that are currently being transferred to another worker
+
+    private final Map<UUID, Queue<WorkerBoundContainerPacket>> earlyMovementPackets = new ConcurrentHashMap<>();
 
     int workerId = DSLServerConfigs.WORKER_ID.get();
     int workerSize = DSLServerConfigs.WORKER_SIZE.get();
@@ -68,18 +68,27 @@ public class WorkerListenerImpl implements WorkerListener {
 
     @Override
     public void handleProxyWorkerPacket(WorkerBoundContainerPacket packet) {
+
+        UUID uuid = packet.getPlayerId();
+        if (!playerConnections.containsKey(uuid)) {
+            earlyMovementPackets.computeIfAbsent(uuid, k -> new LinkedList<>()).add(packet);
+            return;
+        }
+
         //Ejecuta el paquete interno con el listener asociado al UUID
         Connection connection = playerConnections.get(packet.getPlayerId());
         if(connection == null) {
-            DistributedServerLevels.LOGGER.warn("ServerPlayer with UUID ["+packet.getPlayerId()+"] does not have a listener. (skipped player login?)");
+            DistributedServerLevels.LOGGER.warn("ServerPlayer with UUID ["+packet.getPlayerId()+"] does not have a listener");
         } else if (transferring.contains(packet.getPlayerId())) {
             DistributedServerLevels.LOGGER.info("This player is being transferred to another worker");
         } else if(connection.getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener) {
+            //System.out.println("Handling this packet in player packetListener");
             server.execute(()->{ //Run on the minecraft main thread instead of the I/O thread
                 ((Packet<ServerGamePacketListener>) packet.getPayload()).handle(serverGamePacketListener);
                 handleOutsideWorkerBounds(packet,server); //TODO ver si puede darse el caso de que entren varios paquetes de movimiento antes de que se marque como transferring
             });
         } else {
+            System.out.println("ERROR inesperado");
             Component component = Component.translatable("disconnect.genericReason", "Internal Exception"); //TODO código de prueba
             connection.send(new ClientboundDisconnectPacket(component));
         }
@@ -110,15 +119,29 @@ public class WorkerListenerImpl implements WorkerListener {
 
     @Override
     public void handlePlayerLogin(WorkerBoundPlayerInitPacket packet) {
-        //TODO hay que ver esto de las dimensiones
+        System.out.println("Worker: handlePlayerLogin");
+
         ServerPlayer player = packet.rebuildServerPlayer(server);
         CommonListenerCookie cookie = packet.rebuildCookie();
         DistributedServerLevels.LOGGER.info("New player ["+player.getDisplayName().getString()+"] logged into worker ["+ DSLServerConfigs.WORKER_ID.get()+"]");
 
         Connection connection = generateConnection(player, cookie);
 
-        server.getPlayerList().placeNewPlayer(connection,player,cookie);
-        DistributedServerLevels.LOGGER.info("Player ["+player.getDisplayName().getString()+"] placed in world");
+        server.execute(()-> {
+            server.getPlayerList().placeNewPlayer(connection, player, cookie);
+
+            this.playerConnections.put(player.getUUID(), connection);//Set this connection as a player connection only after player is placed in world
+            System.out.println("Player ["+player.getDisplayName().getString()+"] placed in world");
+            System.out.flush();
+
+            Queue<WorkerBoundContainerPacket> pending = earlyMovementPackets.remove(player.getUUID());
+            if (pending != null) {
+                for (WorkerBoundContainerPacket buffered : pending) {
+                    if(connection.getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener)
+                    ((Packet<ServerGamePacketListener>) buffered.getPayload()).handle(serverGamePacketListener);
+                }
+            }
+        });
     }
 
     /**
@@ -134,11 +157,11 @@ public class WorkerListenerImpl implements WorkerListener {
         try {
             ((ConnectionAccessor) connection).setChannel(sharedPipeline.channel());
             ((ConnectionAccessor) connection).setPacketListener(playerListener);
-            this.playerConnections.put(player.getUUID(),connection); //Hold in map
         }catch (Exception e){
             DistributedServerLevels.LOGGER.error("Error setting channelActive");
         }
 
+        player.connection = playerListener; //Set this players listener
         server.getConnection().getConnections().add(connection); //Añadir las fake connections a la lista de conexiones del servidor para que hagan tick()
         return connection;
     }
@@ -182,18 +205,25 @@ public class WorkerListenerImpl implements WorkerListener {
         //});
     }
 
+    //Proxy detected a player disconnection
     @Override
     public void handlePlayerDisconnect(WorkerBoundPlayerDisconnectPacket packet) {
+        UUID playerId = packet.getPlayerID();
         server.execute(()->{ //Run on the minecraft main thread instead of the I/O thread
+            ServerPlayer disconnectedPlayer = server.getPlayerList().getPlayer(playerId);
+            if(disconnectedPlayer == null) throw new RuntimeException("handlePlayerDisconnect: Player is null");
+            //Send last player position
+            sharedPipeline.writeAndFlush(new ProxyBoundSavePlayerStatePacket(playerId,workerId,disconnectedPlayer.position(),disconnectedPlayer.level().dimension().location().toString()));
+
             //Disconnect (gamelogic) call to this player gameListener
-            PacketListener gameListener = getDedicatedPlayerListener(packet.getPlayerID());
+            PacketListener gameListener = getDedicatedPlayerListener(playerId);
             gameListener.onDisconnect(packet.getDefaultDisconnectionDetails()); //TODO hay que ver si todo este método hay que ejecutarlo o solo partes de el
             //Remove from map
-            Connection removed = playerConnections.remove(packet.getPlayerID());
+            Connection removed = playerConnections.remove(playerId);
             //Remove from ServerConnectionListener to stop tick() and avoid duplicates
             server.getConnection().getConnections().remove(removed);
             //Remove form transferring
-            transferring.remove(packet.getPlayerID());
+            transferring.remove(playerId);
         });
     }
 

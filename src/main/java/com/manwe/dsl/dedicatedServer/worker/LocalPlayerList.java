@@ -11,6 +11,7 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.game.*;
+import net.minecraft.network.protocol.status.ServerStatus;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.RegistryLayer;
 import net.minecraft.server.dedicated.DedicatedPlayerList;
@@ -70,27 +71,6 @@ public class LocalPlayerList extends DedicatedPlayerList {
         LevelData leveldata = serverlevel1.getLevelData();
         pPlayer.loadGameTypes(optional1.orElse(null));
 
-        /*
-        GameRules gamerules = serverlevel1.getGameRules();
-        boolean flag = gamerules.getBoolean(GameRules.RULE_DO_IMMEDIATE_RESPAWN);
-        boolean flag1 = gamerules.getBoolean(GameRules.RULE_REDUCEDDEBUGINFO);
-        boolean flag2 = gamerules.getBoolean(GameRules.RULE_LIMITED_CRAFTING);
-        pConnection.send(
-                new ClientboundLoginPacket(
-                        pPlayer.getId(),
-                        leveldata.isHardcore(),
-                        getServer().levelKeys(),
-                        this.getMaxPlayers(),
-                        this.getViewDistance(),
-                        this.getSimulationDistance(),
-                        flag1,
-                        !flag,
-                        flag2,
-                        pPlayer.createCommonSpawnInfo(serverlevel1),
-                        getServer().enforceSecureProfile()
-                )
-        );*/ //TODO de momento el ClientboundLoginPacket lo maneja el proxy
-
         pConnection.send(new ClientboundChangeDifficultyPacket(leveldata.getDifficulty(), leveldata.isDifficultyLocked()));
         pConnection.send(new ClientboundPlayerAbilitiesPacket(pPlayer.getAbilities()));
         pConnection.send(new ClientboundSetCarriedItemPacket(pPlayer.getInventory().selected));
@@ -104,12 +84,14 @@ public class LocalPlayerList extends DedicatedPlayerList {
         this.getServer().invalidateStatus();
         if(pConnection.getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener){
             serverGamePacketListener.teleport(pPlayer.getX(), pPlayer.getY(), pPlayer.getZ(), pPlayer.getYRot(), pPlayer.getXRot());
+            System.out.println("Mandado el ClientboundPlayerPositionPacket //TELEPORT INICIAL// el cliente tiene que responder con un ack");
+            System.out.println("Con la posición inicial: "+pPlayer.position().toString());
         }
-        /*
+
         ServerStatus serverstatus = this.getServer().getStatus();
         if (serverstatus != null && !pCookie.transferred()) {
             pPlayer.sendServerStatus(serverstatus); //TODO Hay que mandar el server status?
-        }*/
+        }
 
         pPlayer.connection.send(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(this.getPlayers())); //TODO Hay que mandar esta información?
         ((PlayerListAccessor) this).getPlayers().add(pPlayer);
@@ -170,10 +152,12 @@ public class LocalPlayerList extends DedicatedPlayerList {
 
         pPlayer.setServerLevel(level); // vincula la entidad al Level correcto
 
+        pPlayer.loadGameTypes(nbt); //Set gameMode
         ((PlayerListAccessor) this).getPlayers().add(pPlayer);
         ((PlayerListAccessor) this).getPlayersByUUID().put(pPlayer.getUUID(), pPlayer);
 
         level.addNewPlayer(pPlayer);
+
         pPlayer.initInventoryMenu(); //TODO Hay que gestionar el inventario en el worker?
 
         /* ---------- 3. Restaurar montura, si la hubiera ---------- */

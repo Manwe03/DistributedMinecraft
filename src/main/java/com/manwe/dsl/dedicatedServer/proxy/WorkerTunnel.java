@@ -11,8 +11,11 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.flow.FlowControlHandler;
 import net.minecraft.network.*;
 import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.level.storage.LevelResource;
 
 import java.net.InetSocketAddress;
+import java.nio.file.Path;
 
 /**
  * Cliente del Proxy hacia los workers
@@ -22,10 +25,12 @@ public class WorkerTunnel {
     private final Connection connection;
     private final Channel channel;
 
-    public WorkerTunnel(InetSocketAddress workerAddress, RegionRouter router) {        // para mandar C→S←W
+    public WorkerTunnel(InetSocketAddress workerAddress, RegionRouter router, MinecraftServer server) {        // para mandar C→S←W
         System.out.println("WorkerTunnel Iniciado Cliente: Proxy -> Worker");
-        this.workerAddress = workerAddress;
 
+        Path playerDir = server.getWorldPath(LevelResource.PLAYER_DATA_DIR);
+
+        this.workerAddress = workerAddress;
         this.connection = new  Connection(PacketFlow.CLIENTBOUND);
         this.channel = new Bootstrap() // Inicialización del cliente
                 .group(router.getEventLoopGroup())
@@ -44,7 +49,7 @@ public class WorkerTunnel {
                         pipeline.addLast("encoder", new PacketEncoder<>(InternalGameProtocols.SERVERBOUND));
 
                         connection.configurePacketHandler(pipeline);
-                        ProxyListenerImpl listener = new ProxyListenerImpl(pipeline, router);
+                        ProxyListenerImpl listener = new ProxyListenerImpl(pipeline, router,playerDir);
                         ((ConnectionAccessor) connection).setPacketListener(listener);
 
                     }

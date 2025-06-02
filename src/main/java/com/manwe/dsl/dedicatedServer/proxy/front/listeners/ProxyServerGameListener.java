@@ -6,6 +6,7 @@ import com.manwe.dsl.dedicatedServer.proxy.WorkerTunnel;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundContainerPacket;
+import io.netty.channel.ChannelFuture;
 import net.minecraft.network.Connection;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
@@ -24,6 +25,7 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
     ProxyDedicatedServer server;
     RegionRouter router;
 
+    boolean blockClientMovementBeforeACK = true;
     public ProxyServerGameListener(MinecraftServer pServer, Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie, RegionRouter router) {
         super(pServer, pConnection, pPlayer, pCookie);
         if(pServer instanceof ProxyDedicatedServer server1){
@@ -66,9 +68,11 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleAcceptTeleportPacket(@NotNull ServerboundAcceptTeleportationPacket pPacket) {
-        System.out.println("Proxy: handleAcceptTeleportPacket ID:" + pPacket.getId() + " sending to -> worker");
+        blockClientMovementBeforeACK = false;
+        System.out.println("ACK desbloqueado movement");
+
         WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
-        tunnel.send(new WorkerBoundContainerPacket(player.getUUID(),pPacket));
+        ChannelFuture future = tunnel.send(new WorkerBoundContainerPacket(player.getUUID(),pPacket));
     }
 
     @Override
@@ -178,7 +182,12 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleMovePlayer(@NotNull ServerboundMovePlayerPacket pPacket) {
-        //System.out.println("handleMovePlayer: " + pPacket.getX(0) + ":" + pPacket.getY(0) + ":" + pPacket.getZ(0));
+        if(blockClientMovementBeforeACK) {
+            System.out.println("Movement Bloqueado");
+            return;
+        }
+
+        System.out.println("Send Movement");
         WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
         tunnel.send(new WorkerBoundContainerPacket(player.getUUID(), pPacket)); //Send wrapped movement packet
     }
@@ -225,8 +234,6 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
         WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
         tunnel.send(new WorkerBoundPlayerDisconnectPacket(this.player.getUUID()));
 
-        //this.removePlayerFromWorld();
-        //super.onDisconnect(pDetails);
     }
 
     /**

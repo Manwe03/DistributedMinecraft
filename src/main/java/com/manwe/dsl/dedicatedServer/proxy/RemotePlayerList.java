@@ -11,7 +11,9 @@ import com.mojang.serialization.Dynamic;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.LayeredRegistryAccess;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -31,8 +33,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.PlayerDataStorage;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * Modified PlaceNewPlayer, set up RemoteServerGamePacketListenerImpl instead of ServerGamePacketListenerImpl
@@ -51,6 +55,8 @@ public class RemotePlayerList extends DedicatedPlayerList {
     @Override
     public void placeNewPlayer(Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie) {
         if(!(((PlayerListAccessor) this).getServer() instanceof ProxyDedicatedServer proxyDedicatedServer)) throw new RuntimeException("placeNewPlayer from RemotePlayerList was not called in a ProxyDedicatedServer");
+        if(!proxyDedicatedServer.isProxy()) throw new RuntimeException("Worker cannot have a remotePlayerList");
+
         GameProfile gameprofile = pPlayer.getGameProfile();
         GameProfileCache gameprofilecache = proxyDedicatedServer.getProfileCache();
         String s;
@@ -62,55 +68,61 @@ public class RemotePlayerList extends DedicatedPlayerList {
             s = gameprofile.getName();
         }
 
-        Optional<CompoundTag> optional1 = this.load(pPlayer);
-        ResourceKey<Level> resourcekey = optional1.<ResourceKey<Level>>flatMap(
-                        p_337568_ -> DimensionType.parseLegacy(new Dynamic<>(NbtOps.INSTANCE, p_337568_.get("Dimension"))).resultOrPartial(DistributedServerLevels.LOGGER::error)
-                )
-                .orElse(Level.OVERWORLD);
-        ServerLevel serverlevel = proxyDedicatedServer.getLevel(resourcekey);
-        ServerLevel serverlevel1;
-        if (serverlevel == null) {
-            DistributedServerLevels.LOGGER.warn("Unknown respawn dimension {}, defaulting to overworld", resourcekey);
-            serverlevel1 = proxyDedicatedServer.overworld();
-        } else {
-            serverlevel1 = serverlevel;
+        //LOAD CUSTOM SAVE STATE IN PROXY
+        ResourceKey<Level> dim = null;
+        int workerId = 0;
+        Vec3 position = null;
+
+        Optional<CompoundTag> nbtOpt = this.load(pPlayer);
+        if (nbtOpt.isPresent()) {
+            CompoundTag nbt = nbtOpt.get();
+
+            /* dimensión ----------------------------------------------------- */
+            dim = DimensionType.parseLegacy(new Dynamic<>(NbtOps.INSTANCE, nbt.get("Dimension")))
+                    .resultOrPartial(DistributedServerLevels.LOGGER::error)
+                    .orElse(Level.OVERWORLD);
+
+            /* posición ------------------------------------------------------ */
+            ListTag pos = nbt.getList("Pos", Tag.TAG_DOUBLE);
+            if (pos.size() == 3) {
+                double x = pos.getDouble(0);
+                double y = pos.getDouble(1);
+                double z = pos.getDouble(2);
+                position = new Vec3(x,y,z);
+            }
+
+            /* worker -------------------------------------------------------- */
+            if (nbt.contains("WorkerId", Tag.TAG_INT)) {
+                workerId = nbt.getInt("WorkerId");
+            }
         }
-        /*
-        pPlayer.setServerLevel(serverlevel1);
-        String s1 = pConnection.getLoggableAddress(proxyDedicatedServer.logIPs());
-        DistributedServerLevels.LOGGER.info(
-                "{}[{}] logged in with entity id {} at ({}, {}, {})",
-                pPlayer.getName().getString(),
-                s1,
-                pPlayer.getId(),
-                pPlayer.getX(),
-                pPlayer.getY(),
-                pPlayer.getZ()
-        );
-        */
+        //CUSTOM STATE LOADED
+
+        ServerLevel serverlevel1 = dim != null ? proxyDedicatedServer.getLevel(dim) : proxyDedicatedServer.overworld();
         LevelData leveldata = serverlevel1.getLevelData();
         //pPlayer.loadGameTypes(optional1.orElse(null));
 
-        if(!proxyDedicatedServer.isProxy())throw new RuntimeException("Worker cannot have a remotePlayerList");
+        pPlayer.setServerLevel(serverlevel1);
+        if(position != null) {
+            pPlayer.setPos(position);
+            System.out.println("Loaded old position at "+ position);
+        }
 
         //Register this Client<->Proxy connection to be used by outgoing client packets from workers to clients. The proxy redirects these packets to the client.
         this.router.addOutgoingConnection(pPlayer.getUUID(),pConnection);
         //Create init message
         WorkerBoundPlayerInitPacket initPacket = new WorkerBoundPlayerInitPacket(pPlayer.getGameProfile(), pPlayer.clientInformation());
 
-        //TODO guardar la posición de los jugadores al desconectarse para enrutarlos con el servidor correcto en caso de reinicio
-        //If this player has no worker set
-        if(!this.router.hasTunnel(pPlayer.getUUID())){
-            //Set tunnel worker in default spawn position
-            System.out.println("This player has no tunnel set defaulting to server spawn");
-            this.router.transferClientToWorker(pPlayer.getUUID(), RegionRouter.defaultSpawnWorkerId(getServer(), DSLServerConfigs.WORKER_SIZE.get(),DSLServerConfigs.REGION_SIZE.get()));
-        }
-        this.router.route(pPlayer.getUUID()).send(initPacket); //Send init to worker
+        //Set worker for player if saved in disk
+        if(workerId != 0) this.router.transferClientToWorker(pPlayer.getUUID(),workerId);
 
-        DistributedServerLevels.LOGGER.info("Broadcast player login to all workers");
+        //If not Saved in memory
+        if(!this.router.hasTunnel(pPlayer.getUUID())){ //Default spawn position
+            this.router.transferClientToWorker(pPlayer.getUUID(), RegionRouter.defaultSpawnWorkerId(getServer(), DSLServerConfigs.WORKER_SIZE.get(),DSLServerConfigs.REGION_SIZE.get()));
+            System.out.println("This player has no tunnel set defaulting to server spawn");
+        }
 
         ProxyServerGameListener servergamepacketlistenerimpl = new ProxyServerGameListener(proxyDedicatedServer, pConnection, pPlayer, pCookie, this.router);
-        System.out.println("Proxy: ProxyServerGameListener");
 
         pConnection.setupInboundProtocol(
                 GameProtocols.SERVERBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(proxyDedicatedServer.registryAccess(), servergamepacketlistenerimpl.getConnectionType())), servergamepacketlistenerimpl
@@ -136,78 +148,12 @@ public class RemotePlayerList extends DedicatedPlayerList {
                 )
         );
 
-        //servergamepacketlistenerimpl.send(new ClientboundChangeDifficultyPacket(leveldata.getDifficulty(), leveldata.isDifficultyLocked()));
-        //servergamepacketlistenerimpl.send(new ClientboundPlayerAbilitiesPacket(pPlayer.getAbilities()));
-        //servergamepacketlistenerimpl.send(new ClientboundSetCarriedItemPacket(pPlayer.getInventory().selected));
-
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.OnDatapackSyncEvent(this, pPlayer));
-        //servergamepacketlistenerimpl.send(new ClientboundUpdateRecipesPacket(proxyDedicatedServer.getRecipeManager().getOrderedRecipes()));
-        //this.sendPlayerPermissionLevel(pPlayer);
         pPlayer.getStats().markAllDirty();
-        //pPlayer.getRecipeBook().sendInitialRecipeBook(pPlayer);
-        //this.updateEntireScoreboard(serverlevel1.getScoreboard(), pPlayer);
         proxyDedicatedServer.invalidateStatus();
-        MutableComponent mutablecomponent;
-        if (pPlayer.getGameProfile().getName().equalsIgnoreCase(s)) {
-            mutablecomponent = Component.translatable("multiplayer.player.joined", pPlayer.getDisplayName());
-        } else {
-            mutablecomponent = Component.translatable("multiplayer.player.joined.renamed", pPlayer.getDisplayName(), s);
-        }
 
-        this.broadcastSystemMessage(mutablecomponent.withStyle(ChatFormatting.YELLOW), false);
-        //servergamepacketlistenerimpl.teleport(pPlayer.getX(), pPlayer.getY(), pPlayer.getZ(), pPlayer.getYRot(), pPlayer.getXRot());
-        ServerStatus serverstatus = proxyDedicatedServer.getStatus();
-        if (serverstatus != null && !pCookie.transferred()) {
-            pPlayer.sendServerStatus(serverstatus);
-        }
 
-        //pPlayer.connection.send(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(((PlayerListAccessor) this).getPlayers()));
-        //((PlayerListAccessor) this).getPlayers().add(pPlayer);
-        //((PlayerListAccessor) this).getPlayersByUUID().put(pPlayer.getUUID(), pPlayer);
-        //this.broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(pPlayer)));
-        //this.sendLevelInfo(pPlayer, serverlevel1);
-        //serverlevel1.addNewPlayer(pPlayer);
-        //proxyDedicatedServer.getCustomBossEvents().onPlayerConnect(pPlayer);
-        //this.sendActivePlayerEffects(pPlayer);
-        /*
-        if (optional1.isPresent() && optional1.get().contains("RootVehicle", 10)) {
-            CompoundTag compoundtag = optional1.get().getCompound("RootVehicle");
-            Entity entity = EntityType.loadEntityRecursive(
-                    compoundtag.getCompound("Entity"), serverlevel1, p_215603_ -> !serverlevel1.addWithUUID(p_215603_) ? null : p_215603_
-            );
-            if (entity != null) {
-                UUID uuid;
-                if (compoundtag.hasUUID("Attach")) {
-                    uuid = compoundtag.getUUID("Attach");
-                } else {
-                    uuid = null;
-                }
-
-                if (entity.getUUID().equals(uuid)) {
-                    pPlayer.startRiding(entity, true);
-                } else {
-                    for (Entity entity1 : entity.getIndirectPassengers()) {
-                        if (entity1.getUUID().equals(uuid)) {
-                            pPlayer.startRiding(entity1, true);
-                            break;
-                        }
-                    }
-                }
-
-                if (!pPlayer.isPassenger()) {
-                    DistributedServerLevels.LOGGER.warn("Couldn't reattach entity to player");
-                    entity.discard();
-
-                    for (Entity entity2 : entity.getIndirectPassengers()) {
-                        entity2.discard();
-                    }
-                }
-            }
-        }
-
-        pPlayer.initInventoryMenu();
-        net.neoforged.neoforge.event.EventHooks.firePlayerLoggedIn( pPlayer );
-        */
+        this.router.route(pPlayer.getUUID()).send(initPacket); //Send init to worker
     }
 
 }
