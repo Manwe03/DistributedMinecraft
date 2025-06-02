@@ -9,6 +9,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.PacketUtils;
 import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
+import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.server.MinecraftServer;
@@ -28,9 +29,12 @@ import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.Collections;
 import java.util.Set;
 
 public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
+
+    private boolean feedbackSent = false;
 
     public WorkerGamePacketListenerImpl(MinecraftServer pServer, Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie) {
         super(pServer, pConnection, pPlayer, pCookie);
@@ -44,9 +48,15 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleAcceptTeleportPacket(ServerboundAcceptTeleportationPacket pPacket) {
-        System.out.println("ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient().toString());
+        System.out.println("ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
 
         super.handleAcceptTeleportPacket(pPacket);
+
+        if(!feedbackSent) {
+            feedbackSent = true;
+            this.teleport(player.getX(),player.getY(),player.getZ(),player.getXRot(),player.getYRot());
+            this.teleport(player.getX(),player.getY(),player.getZ(),player.getXRot(),player.getYRot());
+        }
     }
 
     /**
@@ -189,8 +199,8 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
                                 System.out.println("NO EXTRA");
                             } else {
                                 System.out.println("TELEPORT EXTRA");
-                                //this.teleport(d3, d4, d5, f, f1); TODO Descomentar
-                                //this.player.doCheckFallDamage(this.player.getX() - d3, this.player.getY() - d4, this.player.getZ() - d5, pPacket.isOnGround());
+                                this.teleport(d3, d4, d5, f, f1);
+                                this.player.doCheckFallDamage(this.player.getX() - d3, this.player.getY() - d4, this.player.getZ() - d5, pPacket.isOnGround());
                             }
                         }
                     }

@@ -17,6 +17,6 @@ public class ServerPlayerMixin {
     @Inject(method = "tick", at = @At("HEAD"))
     public void tick(CallbackInfo ci){
         //System.out.println("Tick al jugador");
-        System.out.println("GameMode: "+gameMode.getGameModeForPlayer().getName());
+        //System.out.println("GameMode: "+gameMode.getGameModeForPlayer().getName());
     }
 }

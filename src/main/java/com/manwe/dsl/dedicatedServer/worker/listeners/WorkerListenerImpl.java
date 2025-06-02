@@ -13,6 +13,7 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransfer
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundContainerPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerTransferPacket;
 import com.manwe.dsl.mixin.accessors.ConnectionAccessor;
+import com.manwe.dsl.mixin.accessors.ServerLevelAccessor;
 import io.netty.channel.ChannelPipeline;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.network.Connection;
@@ -24,6 +25,7 @@ import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.common.*;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.util.Mth;
@@ -72,6 +74,7 @@ public class WorkerListenerImpl implements WorkerListener {
         UUID uuid = packet.getPlayerId();
         if (!playerConnections.containsKey(uuid)) {
             earlyMovementPackets.computeIfAbsent(uuid, k -> new LinkedList<>()).add(packet);
+            System.out.println("Movement Stored");
             return;
         }
 
@@ -127,18 +130,25 @@ public class WorkerListenerImpl implements WorkerListener {
 
         Connection connection = generateConnection(player, cookie);
 
+        //System.out.println("Connection PacketListener "+connection.getPacketListener());
+        //System.out.println("Player PacketListener "+player.connection);
+
         server.execute(()-> {
             server.getPlayerList().placeNewPlayer(connection, player, cookie);
 
             this.playerConnections.put(player.getUUID(), connection);//Set this connection as a player connection only after player is placed in world
             System.out.println("Player ["+player.getDisplayName().getString()+"] placed in world");
+            System.out.println("Tras Login: " + player.getX() + ":" + player.getY() + ":" + player.getZ() + " tickCount=" + player.tickCount + " isAlive=" + player.isAlive() + " isSleeping=" + player.isSleeping() + " noPhysics=" + player.noPhysics + " BoundingBox="+player.getBoundingBox() + " DeltaMovement="+ player.getDeltaMovement() + " OnGround=" + player.onGround() + " isFallFlying=" + player.isFallFlying());
             System.out.flush();
+
+            player.serverLevel().getChunkSource().move(player);
 
             Queue<WorkerBoundContainerPacket> pending = earlyMovementPackets.remove(player.getUUID());
             if (pending != null) {
                 for (WorkerBoundContainerPacket buffered : pending) {
                     if(connection.getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener)
                     ((Packet<ServerGamePacketListener>) buffered.getPayload()).handle(serverGamePacketListener);
+                    System.out.println("Handling pending movement");
                 }
             }
         });

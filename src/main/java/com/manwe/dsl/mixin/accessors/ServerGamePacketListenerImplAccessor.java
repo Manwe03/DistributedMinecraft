@@ -17,6 +17,9 @@ public interface ServerGamePacketListenerImplAccessor {
     @Accessor("awaitingTeleport")
     int getAwaitingTeleport();
 
+    @Accessor("awaitingTeleport")
+    void setAwaitingTeleport(int a);
+
     @Accessor("firstGoodX")
     double getFirstGoodX();
 

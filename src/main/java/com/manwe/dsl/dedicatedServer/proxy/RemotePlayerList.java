@@ -121,6 +121,7 @@ public class RemotePlayerList extends DedicatedPlayerList {
             this.router.transferClientToWorker(pPlayer.getUUID(), RegionRouter.defaultSpawnWorkerId(getServer(), DSLServerConfigs.WORKER_SIZE.get(),DSLServerConfigs.REGION_SIZE.get()));
             System.out.println("This player has no tunnel set defaulting to server spawn");
         }
+        System.out.println("Has ["+pPlayer.getUUID()+"] tunnel "+this.router.hasTunnel(pPlayer.getUUID()));
 
         ProxyServerGameListener servergamepacketlistenerimpl = new ProxyServerGameListener(proxyDedicatedServer, pConnection, pPlayer, pCookie, this.router);
 
