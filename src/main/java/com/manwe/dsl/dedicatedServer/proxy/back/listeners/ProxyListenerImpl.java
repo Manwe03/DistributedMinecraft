@@ -3,11 +3,9 @@ package com.manwe.dsl.dedicatedServer.proxy.back.listeners;
 import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.connectionRouting.RegionRouter;
 import com.manwe.dsl.dedicatedServer.proxy.TeleportSyncHelper;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundContainerPacket;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferACKPacket;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferPacket;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundSavePlayerStatePacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.*;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerDisconnectPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerInitACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerTransferPacket;
 import io.netty.channel.ChannelPipeline;
 import net.minecraft.nbt.CompoundTag;
@@ -24,6 +22,8 @@ import net.minecraft.world.phys.Vec3;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +36,7 @@ public class ProxyListenerImpl implements ProxyListener {
 
     //Players transferring waiting for the handlePlayerTransferACK from the receiving worker
     private final Set<UUID> pendingTransfers = ConcurrentHashMap.newKeySet();
+    private final Map<UUID,Runnable> pendingLogin = new HashMap<>();
 
     private final ChannelPipeline pipeline; //Proxy <-> Worker pipeline
     private final RegionRouter router;
@@ -60,6 +61,16 @@ public class ProxyListenerImpl implements ProxyListener {
     @Override
     public ConnectionProtocol protocol() {
         return ProxyListener.super.protocol();
+    }
+
+    /**
+     * Delays this login code until the proxy receives the worker confirmation that it has created the player
+     * @param uuid Owner
+     * @param runnable Code
+     */
+    @Override
+    public void addPendingLogin(UUID uuid, Runnable runnable){
+        pendingLogin.put(uuid,runnable);
     }
 
     ////////////////////////////////////////////////////
@@ -137,6 +148,15 @@ public class ProxyListenerImpl implements ProxyListener {
         }
 
         System.out.println("SAVED PLAYER STATE IN PROXY AFTER DISCONNECTION");
+    }
+
+    @Override
+    public void handlePlayerInitACK(ProxyBoundPlayerInitACKPacket packet) {
+        System.out.println("Received init ACK, sending ClientboundLoginPacket");
+        pendingLogin.get(packet.getPlayerId()).run();
+
+        router.route(packet.getPlayerId()).send(new WorkerBoundPlayerInitACKPacket(packet.getPlayerId())); //Send ack proxy has sent the login packet
+        System.out.println("proxy has sent the login packet");
     }
 
 }

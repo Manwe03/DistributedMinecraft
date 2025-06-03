@@ -4,6 +4,7 @@
   "package": "com.manwe.dsl.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "ClientboundSetHealthPacketMixin",
     "MainMixin",
     "MinecraftServerInvoker",
     "ServerPlayerMixin",
@@ -18,5 +19,6 @@
     "invokers.ServerGamePacketListenerImplInvoker"
   ],
   "client": [
+    "ClientPacketListenerMixin"
   ]
 }

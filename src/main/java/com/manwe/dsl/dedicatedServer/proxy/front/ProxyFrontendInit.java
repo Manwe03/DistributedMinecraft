@@ -34,7 +34,7 @@ public class ProxyFrontendInit extends ChannelInitializer<Channel> {
         Connection.configureSerialization(pl, PacketFlow.SERVERBOUND, false, null);
         Connection conn = new Connection(PacketFlow.SERVERBOUND);
 
-        listener.getConnections().add(conn);
+        listener.getConnections().add(conn); //Add this connection to the connection list for ticking, this ticks the packet listener
         conn.configurePacketHandler(pl);
 
         conn.setListenerForServerboundHandshake(new ProxyServerHandshakeListener(server, conn));

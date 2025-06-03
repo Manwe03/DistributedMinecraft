@@ -156,12 +156,12 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
                                 flag2 = true;
                                 DistributedServerLevels.LOGGER.warn("{} moved wrongly!", this.player.getName().getString());
                             }
-                            /*
+
                             System.out.println("this.player.noPhysics "+ this.player.noPhysics+" o");
                             System.out.println("this.player.isSleeping() "+ this.player.isSleeping()+" o");
                             System.out.println("(!flag2 || !serverlevel.noCollision(this.player, aabb))"+(!flag2 || !serverlevel.noCollision(this.player, aabb))+" y");
                             System.out.println("! localInvokeIsPlayerCollidingWithAnythingNew(serverlevel, aabb, d0, d1, d2)"+ !localInvokeIsPlayerCollidingWithAnythingNew(serverlevel, aabb, d0, d1, d2));
-                            */
+
                             if (this.player.noPhysics || this.player.isSleeping() || (!flag2 || !serverlevel.noCollision(this.player, aabb)) && !localInvokeIsPlayerCollidingWithAnythingNew(serverlevel, aabb, d0, d1, d2)) {
                                 this.player.absMoveTo(d0, d1, d2, f, f1);
                                 boolean flag3 = this.player.isAutoSpinAttack();

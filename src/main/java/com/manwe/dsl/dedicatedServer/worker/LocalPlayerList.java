@@ -1,15 +1,21 @@
 package com.manwe.dsl.dedicatedServer.worker;
 
 import com.manwe.dsl.DistributedServerLevels;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerInitACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerGamePacketListenerImpl;
 import com.manwe.dsl.mixin.accessors.PlayerListAccessor;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Dynamic;
+import io.netty.channel.ChannelPipeline;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.LayeredRegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.status.ServerStatus;
 import net.minecraft.resources.ResourceKey;
@@ -19,26 +25,24 @@ import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.PlayerDataStorage;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 public class LocalPlayerList extends DedicatedPlayerList {
     public LocalPlayerList(DedicatedServer pServer, LayeredRegistryAccess<RegistryLayer> pRegistries, PlayerDataStorage pPlayerIo) {
         super(pServer, pRegistries, pPlayerIo);
     }
 
-    @Override
-    public void placeNewPlayer(Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie) {
+    public Runnable placeNewPlayer(Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie, ChannelPipeline sharedPipeline, Map<UUID, Connection> playerConnections) {
         GameProfile gameprofile = pPlayer.getGameProfile();
         GameProfileCache gameprofilecache = this.getServer().getProfileCache();
         if (gameprofilecache != null) gameprofilecache.add(gameprofile);
@@ -71,10 +75,13 @@ public class LocalPlayerList extends DedicatedPlayerList {
         LevelData leveldata = serverlevel1.getLevelData();
         pPlayer.loadGameTypes(optional1.orElse(null));
 
+        System.out.println("Sending player init ack"); //Tell proxy to send LoginPacket
+        sharedPipeline.writeAndFlush(new ProxyBoundPlayerInitACKPacket(pPlayer.getUUID()));
+
+        System.out.println("Sending rest of client bound packets");
         pConnection.send(new ClientboundChangeDifficultyPacket(leveldata.getDifficulty(), leveldata.isDifficultyLocked()));
         pConnection.send(new ClientboundPlayerAbilitiesPacket(pPlayer.getAbilities()));
         pConnection.send(new ClientboundSetCarriedItemPacket(pPlayer.getInventory().selected));
-
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.OnDatapackSyncEvent(this, pPlayer));
         pConnection.send(new ClientboundUpdateRecipesPacket(this.getServer().getRecipeManager().getOrderedRecipes()));
         this.sendPlayerPermissionLevel(pPlayer); //TODO Hay que mandar esto?
@@ -82,6 +89,15 @@ public class LocalPlayerList extends DedicatedPlayerList {
         pPlayer.getRecipeBook().sendInitialRecipeBook(pPlayer); //TODO Hay que mandar esta información?
         this.updateEntireScoreboard(serverlevel1.getScoreboard(), pPlayer);
         this.getServer().invalidateStatus();
+        //MutableComponent mutablecomponent;
+        //if (pPlayer.getGameProfile().getName().equalsIgnoreCase(s)) {
+        //    mutablecomponent = Component.translatable("multiplayer.player.joined", pPlayer.getDisplayName());
+        //} else {
+        //    mutablecomponent = Component.translatable("multiplayer.player.joined.renamed", pPlayer.getDisplayName(), s);
+        //}
+        //
+        //this.broadcastSystemMessage(mutablecomponent.withStyle(ChatFormatting.YELLOW), false);
+
         if(pConnection.getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener){
             serverGamePacketListener.teleport(pPlayer.getX(), pPlayer.getY(), pPlayer.getZ(), pPlayer.getYRot(), pPlayer.getXRot());
             System.out.println("Mandado el ClientboundPlayerPositionPacket //TELEPORT INICIAL// el cliente tiene que responder con un ack");
@@ -90,54 +106,58 @@ public class LocalPlayerList extends DedicatedPlayerList {
 
         ServerStatus serverstatus = this.getServer().getStatus();
         if (serverstatus != null && !pCookie.transferred()) {
-            pPlayer.sendServerStatus(serverstatus); //TODO Hay que mandar el server status?
+            pPlayer.sendServerStatus(serverstatus);
         }
 
-        pPlayer.connection.send(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(this.getPlayers())); //TODO Hay que mandar esta información?
+        pPlayer.connection.send(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(this.getPlayers()));
         ((PlayerListAccessor) this).getPlayers().add(pPlayer);
         ((PlayerListAccessor) this).getPlayersByUUID().put(pPlayer.getUUID(), pPlayer);
         this.broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(pPlayer)));
-        this.sendLevelInfo(pPlayer, serverlevel1); //TODO Mandar?
-        serverlevel1.addNewPlayer(pPlayer);
-        this.getServer().getCustomBossEvents().onPlayerConnect(pPlayer);
-        this.sendActivePlayerEffects(pPlayer); //TODO Hay que manejar los efectos en el worker?
-        if (optional1.isPresent() && optional1.get().contains("RootVehicle", 10)) {
-            CompoundTag compoundtag = optional1.get().getCompound("RootVehicle");
-            Entity entity = EntityType.loadEntityRecursive(
-                    compoundtag.getCompound("Entity"), serverlevel1, p_215603_ -> !serverlevel1.addWithUUID(p_215603_) ? null : p_215603_
-            );
-            if (entity != null) {
-                UUID uuid;
-                if (compoundtag.hasUUID("Attach")) {
-                    uuid = compoundtag.getUUID("Attach");
-                } else {
-                    uuid = null;
-                }
+        this.sendLevelInfo(pPlayer, serverlevel1);
 
-                if (entity.getUUID().equals(uuid)) {
-                    pPlayer.startRiding(entity, true);
-                } else {
-                    for (Entity entity1 : entity.getIndirectPassengers()) {
-                        if (entity1.getUUID().equals(uuid)) {
-                            pPlayer.startRiding(entity1, true);
-                            break;
+        //Defer this call until we get confirmation that the proxy sent the loginPacket
+        return () -> {
+            serverlevel1.addNewPlayer(pPlayer); //TODO añadir al tick mas tarde
+            this.getServer().getCustomBossEvents().onPlayerConnect(pPlayer);
+            this.sendActivePlayerEffects(pPlayer);
+            if (optional1.isPresent() && optional1.get().contains("RootVehicle", 10)) {
+                CompoundTag compoundtag = optional1.get().getCompound("RootVehicle");
+                Entity entity = EntityType.loadEntityRecursive(
+                        compoundtag.getCompound("Entity"), serverlevel1, p_215603_ -> !serverlevel1.addWithUUID(p_215603_) ? null : p_215603_
+                );
+                if (entity != null) {
+                    UUID uuid;
+                    if (compoundtag.hasUUID("Attach")) {
+                        uuid = compoundtag.getUUID("Attach");
+                    } else {
+                        uuid = null;
+                    }
+
+                    if (entity.getUUID().equals(uuid)) {
+                        pPlayer.startRiding(entity, true);
+                    } else {
+                        for (Entity entity1 : entity.getIndirectPassengers()) {
+                            if (entity1.getUUID().equals(uuid)) {
+                                pPlayer.startRiding(entity1, true);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!pPlayer.isPassenger()) {
+                        DistributedServerLevels.LOGGER.warn("Couldn't reattach entity to player");
+                        entity.discard();
+
+                        for (Entity entity2 : entity.getIndirectPassengers()) {
+                            entity2.discard();
                         }
                     }
                 }
-
-                if (!pPlayer.isPassenger()) {
-                    DistributedServerLevels.LOGGER.warn("Couldn't reattach entity to player");
-                    entity.discard();
-
-                    for (Entity entity2 : entity.getIndirectPassengers()) {
-                        entity2.discard();
-                    }
-                }
             }
-        }
 
-        pPlayer.initInventoryMenu(); //TODO Hay que gestionar el inventario en el worker?
-        net.neoforged.neoforge.event.EventHooks.firePlayerLoggedIn( pPlayer );
+            pPlayer.initInventoryMenu(); //TODO Hay que gestionar el inventario en el worker?
+            net.neoforged.neoforge.event.EventHooks.firePlayerLoggedIn(pPlayer);
+        };
     }
 
     public void transferExistingPlayer(ServerPlayer pPlayer, CompoundTag nbt){

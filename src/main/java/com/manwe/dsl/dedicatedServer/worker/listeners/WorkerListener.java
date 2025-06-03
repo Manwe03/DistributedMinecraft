@@ -1,9 +1,6 @@
 package com.manwe.dsl.dedicatedServer.worker.listeners;
 
-import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerInitPacket;
-import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerDisconnectPacket;
-import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundContainerPacket;
-import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerTransferPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.*;
 import net.minecraft.network.Connection;
 import net.minecraft.network.ConnectionProtocol;
 import net.minecraft.network.protocol.game.ServerPacketListener;
@@ -20,6 +17,8 @@ public interface WorkerListener extends ServerPacketListener {
     void handleProxyWorkerPacket(WorkerBoundContainerPacket packet);
 
     void handlePlayerLogin(WorkerBoundPlayerInitPacket packet);
+
+    void handlePlayerLoginACK(WorkerBoundPlayerInitACKPacket packet);
 
     void handlePlayerTransfer(WorkerBoundPlayerTransferPacket packet);
 

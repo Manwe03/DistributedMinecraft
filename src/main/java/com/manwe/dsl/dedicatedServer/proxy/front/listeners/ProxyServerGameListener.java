@@ -25,7 +25,7 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
     ProxyDedicatedServer server;
     RegionRouter router;
 
-    boolean blockClientMovementBeforeACK = true;
+    //boolean blockClientMovementBeforeACK = true;
     public ProxyServerGameListener(MinecraftServer pServer, Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie, RegionRouter router) {
         super(pServer, pConnection, pPlayer, pCookie);
         if(pServer instanceof ProxyDedicatedServer server1){
@@ -51,6 +51,11 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
     ///ServerGamePacketListenerImpl///
     //////////////////////////////////
 
+    @Override
+    public void tick() {
+        //Cancel all ticking for this ServerPlayer in the proxy, ticking is done by the workers
+    }
+
     /**
      * Processes player movement input. Includes walking, strafing, jumping, and sneaking. Excludes riding and toggling flying/sprinting.
      */
@@ -68,8 +73,8 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleAcceptTeleportPacket(@NotNull ServerboundAcceptTeleportationPacket pPacket) {
-        blockClientMovementBeforeACK = false;
-        System.out.println("ACK desbloqueado movement");
+        //blockClientMovementBeforeACK = false;
+        //System.out.println("ACK desbloqueado movement");
 
         WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
         ChannelFuture future = tunnel.send(new WorkerBoundContainerPacket(player.getUUID(),pPacket));
@@ -182,11 +187,6 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleMovePlayer(@NotNull ServerboundMovePlayerPacket pPacket) {
-        if(blockClientMovementBeforeACK) {
-            System.out.println("Movement Bloqueado");
-            return;
-        }
-
         System.out.println("Send Movement");
         WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
         tunnel.send(new WorkerBoundContainerPacket(player.getUUID(), pPacket)); //Send wrapped movement packet
@@ -233,7 +233,6 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
         DistributedServerLevels.LOGGER.info("{} lost connection: {}", this.player.getName().getString(), pDetails.reason().getString());
         WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
         tunnel.send(new WorkerBoundPlayerDisconnectPacket(this.player.getUUID()));
-
     }
 
     /**

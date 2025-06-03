@@ -1,6 +1,7 @@
 package com.manwe.dsl.dedicatedServer.proxy;
 
 import com.manwe.dsl.connectionRouting.RegionRouter;
+import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
 import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListenerImpl;
 import com.manwe.dsl.dedicatedServer.InternalGameProtocols;
 import com.manwe.dsl.mixin.accessors.ConnectionAccessor;
@@ -82,6 +83,14 @@ public class WorkerTunnel {
         //Configuración vanilla
         Connection.configureSerialization(connection.channel().pipeline(), PacketFlow.CLIENTBOUND, false, null);
         //connection.configurePacketHandler(connection.channel().pipeline());
+    }
+
+    /**
+     * Returns the packetListener for the incoming packets to this tunnel
+     */
+    public ProxyListener getPacketListener(){
+        if(!(connection.getPacketListener() instanceof ProxyListener conn)) throw new RuntimeException("PacketListener associated to this tunnel is not a ProxyListener");
+        return conn;
     }
 
     public void sendDisconect(){

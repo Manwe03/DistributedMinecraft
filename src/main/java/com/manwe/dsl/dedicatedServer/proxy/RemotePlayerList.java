@@ -68,6 +68,9 @@ public class RemotePlayerList extends DedicatedPlayerList {
             s = gameprofile.getName();
         }
 
+        System.out.println("placeNewPlayer Gameprofile: "+ gameprofile);
+        System.out.println("placeNewPlayer player.Gameprofile: "+ pPlayer.getGameProfile());
+
         //LOAD CUSTOM SAVE STATE IN PROXY
         ResourceKey<Level> dim = null;
         int workerId = 0;
@@ -129,32 +132,34 @@ public class RemotePlayerList extends DedicatedPlayerList {
                 GameProtocols.SERVERBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(proxyDedicatedServer.registryAccess(), servergamepacketlistenerimpl.getConnectionType())), servergamepacketlistenerimpl
         );
 
-        GameRules gamerules = serverlevel1.getGameRules();
-        boolean flag = gamerules.getBoolean(GameRules.RULE_DO_IMMEDIATE_RESPAWN);
-        boolean flag1 = gamerules.getBoolean(GameRules.RULE_REDUCEDDEBUGINFO);
-        boolean flag2 = gamerules.getBoolean(GameRules.RULE_LIMITED_CRAFTING);
-        servergamepacketlistenerimpl.send(
-                new ClientboundLoginPacket(
-                        pPlayer.getId(),
-                        leveldata.isHardcore(),
-                        proxyDedicatedServer.levelKeys(),
-                        this.getMaxPlayers(),
-                        this.getViewDistance(),
-                        this.getSimulationDistance(),
-                        flag1,
-                        !flag,
-                        flag2,
-                        pPlayer.createCommonSpawnInfo(serverlevel1),
-                        proxyDedicatedServer.enforceSecureProfile()
-                )
-        );
-
-        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.OnDatapackSyncEvent(this, pPlayer));
+        //net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.OnDatapackSyncEvent(this, pPlayer));
         pPlayer.getStats().markAllDirty();
         proxyDedicatedServer.invalidateStatus();
 
 
         this.router.route(pPlayer.getUUID()).send(initPacket); //Send init to worker
-    }
 
+        //Defer this call until the worker has loaded the player (ack)
+        this.router.route(pPlayer.getUUID()).getPacketListener().addPendingLogin(pPlayer.getUUID(),()->{
+            GameRules gamerules = serverlevel1.getGameRules();
+            boolean flag = gamerules.getBoolean(GameRules.RULE_DO_IMMEDIATE_RESPAWN);
+            boolean flag1 = gamerules.getBoolean(GameRules.RULE_REDUCEDDEBUGINFO);
+            boolean flag2 = gamerules.getBoolean(GameRules.RULE_LIMITED_CRAFTING);
+            servergamepacketlistenerimpl.send(
+                    new ClientboundLoginPacket(
+                            pPlayer.getId(),
+                            leveldata.isHardcore(),
+                            proxyDedicatedServer.levelKeys(),
+                            this.getMaxPlayers(),
+                            this.getViewDistance(),
+                            this.getSimulationDistance(),
+                            flag1,
+                            !flag,
+                            flag2,
+                            pPlayer.createCommonSpawnInfo(serverlevel1),
+                            proxyDedicatedServer.enforceSecureProfile()
+                    )
+            );
+        });
+    }
 }
