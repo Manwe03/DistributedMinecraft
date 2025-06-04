@@ -1,4 +1,4 @@
-package com.manwe.dsl.mixin;
+package com.manwe.dsl.mixin.log;
 
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.*;
@@ -32,7 +32,7 @@ public class ClientPacketListenerMixin {
     }
     @Inject(method = "handleEntityEvent",at = @At("HEAD"))
     public void handleEntityEvent(ClientboundEntityEventPacket pPacket, CallbackInfo ci){
-        System.out.println("handleEntityEvent");
+        System.out.println("handleEntityEvent id:" + pPacket.getEventId());
     }
     @Inject(method = "handleAddOrRemoveRecipes",at = @At("HEAD"))
     public void handleAddOrRemoveRecipes(ClientboundRecipePacket pPacket, CallbackInfo ci){
@@ -93,5 +93,17 @@ public class ClientPacketListenerMixin {
     @Inject(method = "handleSetHealth", at = @At("HEAD"))
     public void handleSetHealth(ClientboundSetHealthPacket pPacket, CallbackInfo ci){
         System.out.println("handleSetHealth");
+    }
+    @Inject(method = "handleLevelChunkWithLight", at = @At("HEAD"))
+    public void handleLevelChunkWithLight(ClientboundLevelChunkWithLightPacket pPacket, CallbackInfo ci){
+        System.out.println("handleLevelChunkWithLight");
+    }
+    @Inject(method = "handleChunkBatchFinished", at = @At("HEAD"))
+    public void handleChunkBatchFinished(ClientboundChunkBatchFinishedPacket pPacket, CallbackInfo ci){
+        System.out.println("handleChunkBatchFinished");
+    }
+    @Inject(method = "handleChunkBatchStart", at = @At("HEAD"))
+    public void handleChunkBatchStart(ClientboundChunkBatchStartPacket pPacket, CallbackInfo ci){
+        System.out.println("handleChunkBatchStart");
     }
 }

@@ -7,7 +7,6 @@
     "ClientboundSetHealthPacketMixin",
     "MainMixin",
     "MinecraftServerInvoker",
-    "ServerPlayerMixin",
     "accessors.ConnectionAccessor",
     "accessors.DedicatedServerAccessor",
     "accessors.MinecraftServerAccessor",
@@ -15,9 +14,14 @@
     "accessors.ServerConnectionListenerAccessor",
     "accessors.ServerGamePacketListenerImplAccessor",
     "accessors.ServerLevelAccessor",
-    "invokers.ServerGamePacketListenerImplInvoker"
+    "invokers.ServerGamePacketListenerImplInvoker",
+    "log.ClientboundLoginPacketMixin",
+    "log.PlayerListMixin",
+    "log.ServerPlayerMixin"
   ],
   "client": [
-    "ClientPacketListenerMixin"
+    "log.ClientLevelMixin",
+    "log.ClientPacketListenerMixin",
+    "log.LocalPlayerMixin"
   ]
 }

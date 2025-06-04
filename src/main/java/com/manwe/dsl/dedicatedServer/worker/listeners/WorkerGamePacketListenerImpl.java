@@ -30,6 +30,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Set;
 
 public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
@@ -48,15 +49,19 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleAcceptTeleportPacket(ServerboundAcceptTeleportationPacket pPacket) {
-        System.out.println("ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
-
+        System.out.println("Pre ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
         super.handleAcceptTeleportPacket(pPacket);
+        System.out.println("Post ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
 
+        /*
         if(!feedbackSent) {
             feedbackSent = true;
-            this.teleport(player.getX(),player.getY(),player.getZ(),player.getXRot(),player.getYRot());
-            this.teleport(player.getX(),player.getY(),player.getZ(),player.getXRot(),player.getYRot());
-        }
+            player.connection.send(new ClientboundPlayerPositionPacket(
+                    0, 0, 0, player.getYRot(), player.getXRot(),
+                    EnumSet.noneOf(RelativeMovement.class),
+                    pPacket.getId()
+            ));
+        }*/
     }
 
     /**
@@ -64,13 +69,11 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
      */
     @Override
     public void handleMovePlayer(ServerboundMovePlayerPacket pPacket) {
-
-        player.tick();
-
-        System.out.println("handleMovePlayer: "+pPacket.getX(0)+":"+pPacket.getY(0)+":"+pPacket.getZ(0));
         //super.handleMovePlayer(pPacket);
+        //player.tick(); ???
 
-        System.out.println("Antes de mover: " + player.getX() + ":" + player.getY() + ":" + player.getZ() + " tickCount=" + player.tickCount + " isAlive=" + player.isAlive() + " isSleeping=" + player.isSleeping() + " noPhysics=" + player.noPhysics);
+        System.out.println("handleMovePlayer: "+pPacket.getX(0)+":"+pPacket.getY(0)+":"+pPacket.getZ(0) + "AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
+        //System.out.println(player.getX() + ":" + player.getY() + ":" + player.getZ() + " tickCount=" + player.tickCount + " isAlive=" + player.isAlive() + " isSleeping=" + player.isSleeping() + " noPhysics=" + player.noPhysics);
 
         PacketUtils.ensureRunningOnSameThread(pPacket, this, this.player.serverLevel());
         if (containsInvalidValues(pPacket.getX(0.0), pPacket.getY(0.0), pPacket.getZ(0.0), pPacket.getYRot(0.0F), pPacket.getXRot(0.0F))) {
@@ -196,7 +199,7 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
                                 ((ServerGamePacketListenerImplAccessor) this).setLastGoodX(this.player.getX());
                                 ((ServerGamePacketListenerImplAccessor) this).setLastGoodY(this.player.getY());
                                 ((ServerGamePacketListenerImplAccessor) this).setLastGoodZ(this.player.getZ());
-                                System.out.println("NO EXTRA");
+                                System.out.println("MOVE EXITOSO");
                             } else {
                                 System.out.println("TELEPORT EXTRA");
                                 this.teleport(d3, d4, d5, f, f1);
@@ -204,12 +207,14 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
                             }
                         }
                     }
+                } else {
+                    System.out.println("Ignorado esperando ack");
                 }
             }
         }
 
-        System.out.println("Tras de mover: " + player.getX() + ":" + player.getY() + ":" + player.getZ() + " tickCount=" + player.tickCount + " isAlive=" + player.isAlive() + " isSleeping=" + player.isSleeping() + " noPhysics=" + player.noPhysics);
-        System.out.println("AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
+        //System.out.println(player.getX() + ":" + player.getY() + ":" + player.getZ() + " tickCount=" + player.tickCount + " isAlive=" + player.isAlive() + " isSleeping=" + player.isSleeping() + " noPhysics=" + player.noPhysics);
+        //System.out.println("AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
 
     }
 

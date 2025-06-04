@@ -99,6 +99,7 @@ public class LocalPlayerList extends DedicatedPlayerList {
         //this.broadcastSystemMessage(mutablecomponent.withStyle(ChatFormatting.YELLOW), false);
 
         if(pConnection.getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener){
+            //TODO VER SI ESTE TELEPORT ES NECESARIO O NO
             serverGamePacketListener.teleport(pPlayer.getX(), pPlayer.getY(), pPlayer.getZ(), pPlayer.getYRot(), pPlayer.getXRot());
             System.out.println("Mandado el ClientboundPlayerPositionPacket //TELEPORT INICIAL// el cliente tiene que responder con un ack");
             System.out.println("Con la posición inicial: "+pPlayer.position().toString());
@@ -115,48 +116,51 @@ public class LocalPlayerList extends DedicatedPlayerList {
         this.broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(pPlayer)));
         this.sendLevelInfo(pPlayer, serverlevel1);
 
-        //Defer this call until we get confirmation that the proxy sent the loginPacket
-        return () -> {
-            serverlevel1.addNewPlayer(pPlayer); //TODO añadir al tick mas tarde
-            this.getServer().getCustomBossEvents().onPlayerConnect(pPlayer);
-            this.sendActivePlayerEffects(pPlayer);
-            if (optional1.isPresent() && optional1.get().contains("RootVehicle", 10)) {
-                CompoundTag compoundtag = optional1.get().getCompound("RootVehicle");
-                Entity entity = EntityType.loadEntityRecursive(
-                        compoundtag.getCompound("Entity"), serverlevel1, p_215603_ -> !serverlevel1.addWithUUID(p_215603_) ? null : p_215603_
-                );
-                if (entity != null) {
-                    UUID uuid;
-                    if (compoundtag.hasUUID("Attach")) {
-                        uuid = compoundtag.getUUID("Attach");
-                    } else {
-                        uuid = null;
-                    }
+        //Should this be deferred? ->
 
-                    if (entity.getUUID().equals(uuid)) {
-                        pPlayer.startRiding(entity, true);
-                    } else {
-                        for (Entity entity1 : entity.getIndirectPassengers()) {
-                            if (entity1.getUUID().equals(uuid)) {
-                                pPlayer.startRiding(entity1, true);
-                                break;
-                            }
-                        }
-                    }
+        serverlevel1.addNewPlayer(pPlayer);
+        this.getServer().getCustomBossEvents().onPlayerConnect(pPlayer);
+        this.sendActivePlayerEffects(pPlayer);
+        if (optional1.isPresent() && optional1.get().contains("RootVehicle", 10)) {
+            CompoundTag compoundtag = optional1.get().getCompound("RootVehicle");
+            Entity entity = EntityType.loadEntityRecursive(
+                    compoundtag.getCompound("Entity"), serverlevel1, p_215603_ -> !serverlevel1.addWithUUID(p_215603_) ? null : p_215603_
+            );
+            if (entity != null) {
+                UUID uuid;
+                if (compoundtag.hasUUID("Attach")) {
+                    uuid = compoundtag.getUUID("Attach");
+                } else {
+                    uuid = null;
+                }
 
-                    if (!pPlayer.isPassenger()) {
-                        DistributedServerLevels.LOGGER.warn("Couldn't reattach entity to player");
-                        entity.discard();
-
-                        for (Entity entity2 : entity.getIndirectPassengers()) {
-                            entity2.discard();
+                if (entity.getUUID().equals(uuid)) {
+                    pPlayer.startRiding(entity, true);
+                } else {
+                    for (Entity entity1 : entity.getIndirectPassengers()) {
+                        if (entity1.getUUID().equals(uuid)) {
+                            pPlayer.startRiding(entity1, true);
+                            break;
                         }
                     }
                 }
-            }
 
-            pPlayer.initInventoryMenu(); //TODO Hay que gestionar el inventario en el worker?
-            net.neoforged.neoforge.event.EventHooks.firePlayerLoggedIn(pPlayer);
+                if (!pPlayer.isPassenger()) {
+                    DistributedServerLevels.LOGGER.warn("Couldn't reattach entity to player");
+                    entity.discard();
+
+                    for (Entity entity2 : entity.getIndirectPassengers()) {
+                        entity2.discard();
+                    }
+                }
+            }
+        }
+
+        pPlayer.initInventoryMenu(); //TODO Hay que gestionar el inventario en el worker?
+        net.neoforged.neoforge.event.EventHooks.firePlayerLoggedIn(pPlayer);
+        //Defer this call until we get confirmation that the proxy sent the loginPacket
+        return () -> {
+
         };
     }
 

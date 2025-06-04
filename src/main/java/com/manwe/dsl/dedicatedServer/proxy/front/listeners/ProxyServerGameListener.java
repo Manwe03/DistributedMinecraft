@@ -7,8 +7,10 @@ import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundContainerPacket;
 import io.netty.channel.ChannelFuture;
+import net.minecraft.Util;
 import net.minecraft.network.Connection;
 import net.minecraft.network.DisconnectionDetails;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
@@ -53,6 +55,9 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
 
     @Override
     public void tick() {
+
+        this.keepConnectionAlive(); //Only tick keepConnectionAlive
+
         //Cancel all ticking for this ServerPlayer in the proxy, ticking is done by the workers
     }
 

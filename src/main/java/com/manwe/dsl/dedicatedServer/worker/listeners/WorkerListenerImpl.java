@@ -170,6 +170,8 @@ public class WorkerListenerImpl implements WorkerListener {
                 earlyPackets.get(uuid).forEach(workerBoundContainerPacket -> { //Run pending packets before login completed
                     ((Packet<ServerGamePacketListener>) workerBoundContainerPacket.getPayload()).handle(serverGamePacketListener);
                 });
+            } else {
+                System.out.println("No stored packets");
             }
         });
     }
