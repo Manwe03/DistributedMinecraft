@@ -20,6 +20,7 @@
     "log.ServerPlayerMixin"
   ],
   "client": [
+    "log.ClientLevelInvoker",
     "log.ClientLevelMixin",
     "log.ClientPacketListenerMixin",
     "log.LocalPlayerMixin"

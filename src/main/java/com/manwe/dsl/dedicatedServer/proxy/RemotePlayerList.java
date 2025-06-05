@@ -139,8 +139,10 @@ public class RemotePlayerList extends DedicatedPlayerList {
 
         this.router.route(pPlayer.getUUID()).send(initPacket); //Send init to worker
 
+        /*
         //Defer this call until the worker has loaded the player (ack)
         this.router.route(pPlayer.getUUID()).getPacketListener().addPendingLogin(pPlayer.getUUID(),()->{
+
             GameRules gamerules = serverlevel1.getGameRules();
             boolean flag = gamerules.getBoolean(GameRules.RULE_DO_IMMEDIATE_RESPAWN);
             boolean flag1 = gamerules.getBoolean(GameRules.RULE_REDUCEDDEBUGINFO);
@@ -161,5 +163,6 @@ public class RemotePlayerList extends DedicatedPlayerList {
                     )
             );
         });
+        */
     }
 }

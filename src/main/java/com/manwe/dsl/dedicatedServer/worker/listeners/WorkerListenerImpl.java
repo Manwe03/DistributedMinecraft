@@ -143,7 +143,7 @@ public class WorkerListenerImpl implements WorkerListener {
             System.out.println(Thread.currentThread());
             if(!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("PlayerList is not an instance of LocalPlayerList");
 
-            Runnable pending = localPlayerList.placeNewPlayer(proxyConnection, player, cookie, sharedPipeline,playerConnections);
+            Runnable pending = localPlayerList.placeNewPlayer(proxyConnection, player, cookie, sharedPipeline);
 
             pendingLogin.put(player.getUUID(),pending);
 

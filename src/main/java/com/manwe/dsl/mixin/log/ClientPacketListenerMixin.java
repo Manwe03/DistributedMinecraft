@@ -1,7 +1,12 @@
 package com.manwe.dsl.mixin.log;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.*;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import org.checkerframework.checker.units.qual.A;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -61,6 +66,8 @@ public class ClientPacketListenerMixin {
     @Inject(method = "handlePlayerInfoUpdate",at = @At("HEAD"))
     public void handlePlayerInfoUpdate(ClientboundPlayerInfoUpdatePacket pPacket, CallbackInfo ci){
         System.out.println("handlePlayerInfoUpdate");
+        pPacket.actions().forEach(action -> System.out.println(action));
+
     }
     @Inject(method = "handleInitializeBorder",at = @At("HEAD"))
     public void handleInitializeBorder(ClientboundInitializeBorderPacket pPacket, CallbackInfo ci){
@@ -96,14 +103,53 @@ public class ClientPacketListenerMixin {
     }
     @Inject(method = "handleLevelChunkWithLight", at = @At("HEAD"))
     public void handleLevelChunkWithLight(ClientboundLevelChunkWithLightPacket pPacket, CallbackInfo ci){
-        System.out.println("handleLevelChunkWithLight");
+        System.out.printf("chunk %d,%d arrived (player %d,%d)%n",
+                pPacket.getX(), pPacket.getZ(),
+                Minecraft.getInstance().player.getBlockX() >> 4,
+                Minecraft.getInstance().player.getBlockZ() >> 4);
     }
     @Inject(method = "handleChunkBatchFinished", at = @At("HEAD"))
     public void handleChunkBatchFinished(ClientboundChunkBatchFinishedPacket pPacket, CallbackInfo ci){
-        System.out.println("handleChunkBatchFinished");
+        System.out.println("handleChunkBatchFinished size: "+pPacket.batchSize());
     }
     @Inject(method = "handleChunkBatchStart", at = @At("HEAD"))
     public void handleChunkBatchStart(ClientboundChunkBatchStartPacket pPacket, CallbackInfo ci){
         System.out.println("handleChunkBatchStart");
     }
+
+    @Inject(method = "handleForgetLevelChunk", at = @At("HEAD"))
+    public void handleForgetLevelChunk(ClientboundForgetLevelChunkPacket pPacket, CallbackInfo ci){
+        System.out.printf("chunk %d,%d UNLOADED%n", pPacket.pos().x, pPacket.pos().z);
+    }
+
+    @Inject(method = "handleRemoveEntities", at = @At("HEAD"))
+    public void handleRemoveEntities(ClientboundRemoveEntitiesPacket pPacket, CallbackInfo ci){
+        /*
+        int me = Minecraft.getInstance().player.getId();
+        System.out.println("handleRemoveEntities player id " + me);
+
+        if(Minecraft.getInstance().level == null) {
+            System.out.println("level == null");
+        } else {
+            for(Integer id : pPacket.getEntityIds()){
+                Entity entity = ((ClientLevelInvoker) Minecraft.getInstance().level).invokeGetEntities().get(id);
+                if(entity != null){
+                    System.out.println("Removed entity: " + entity.getName().getString());
+                } else {
+                    System.out.println("Removed unknown with id: " +id);
+                }
+            }
+        }
+        */
+    }
+    @Inject(method = "handleRespawn", at = @At("HEAD"))
+    public void handleRespawn(ClientboundRespawnPacket pPacket, CallbackInfo ci){
+        System.out.println("handleRespawn");
+    }
+    @Inject(method = "handlePlayerInfoRemove", at = @At("HEAD"))
+    public void handlePlayerInfoRemove(ClientboundPlayerInfoRemovePacket pPacket, CallbackInfo ci){
+        System.out.println("handlePlayerInfoRemove UUIDS:");
+        pPacket.profileIds().forEach(System.out::println);
+    }
+
 }

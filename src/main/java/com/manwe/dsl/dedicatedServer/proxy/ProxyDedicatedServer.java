@@ -11,6 +11,7 @@ import com.mojang.datafixers.DataFixer;
 import net.minecraft.*;
 import net.minecraft.server.*;
 import net.minecraft.server.dedicated.*;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.progress.ChunkProgressListenerFactory;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.players.GameProfileCache;
@@ -208,6 +209,12 @@ public class ProxyDedicatedServer extends DedicatedServer {
     @Override
     public void tickServer(BooleanSupplier pHasTimeLeft) {
         super.tickServer(pHasTimeLeft);
+    }
+
+    @Override
+    public void tickChildren(BooleanSupplier pHasTimeLeft) {
+        //System.out.println("TICK CHILDREN");
+        super.tickChildren(pHasTimeLeft);
     }
 
     public boolean isProxy(){

@@ -11,6 +11,7 @@ import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundAcceptTeleportationPacket;
+import net.minecraft.network.protocol.game.ServerboundChunkBatchReceivedPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -249,6 +250,12 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
     public void handleKeepAlive(ServerboundKeepAlivePacket pPacket) {
         super.handleKeepAlive(pPacket);
         System.out.println("(NO debería) keep alive recibido en el worker");
+    }
+
+    @Override
+    public void handleChunkBatchReceived(ServerboundChunkBatchReceivedPacket pPacket) {
+        System.out.println("handleChunkBatchReceived");
+        super.handleChunkBatchReceived(pPacket);
     }
 
     @Override

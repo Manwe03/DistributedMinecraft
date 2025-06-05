@@ -42,7 +42,7 @@ public class LocalPlayerList extends DedicatedPlayerList {
         super(pServer, pRegistries, pPlayerIo);
     }
 
-    public Runnable placeNewPlayer(Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie, ChannelPipeline sharedPipeline, Map<UUID, Connection> playerConnections) {
+    public Runnable placeNewPlayer(Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie, ChannelPipeline sharedPipeline) {
         GameProfile gameprofile = pPlayer.getGameProfile();
         GameProfileCache gameprofilecache = this.getServer().getProfileCache();
         if (gameprofilecache != null) gameprofilecache.add(gameprofile);
@@ -75,8 +75,31 @@ public class LocalPlayerList extends DedicatedPlayerList {
         LevelData leveldata = serverlevel1.getLevelData();
         pPlayer.loadGameTypes(optional1.orElse(null));
 
-        System.out.println("Sending player init ack"); //Tell proxy to send LoginPacket
-        sharedPipeline.writeAndFlush(new ProxyBoundPlayerInitACKPacket(pPlayer.getUUID()));
+        //System.out.println("Sending player init ack"); //Tell proxy to send LoginPacket
+        //sharedPipeline.writeAndFlush(new ProxyBoundPlayerInitACKPacket(pPlayer.getUUID()));
+
+
+        /////////////////////////////////////////////////////////////
+        GameRules gamerules = serverlevel1.getGameRules();
+        boolean flag = gamerules.getBoolean(GameRules.RULE_DO_IMMEDIATE_RESPAWN);
+        boolean flag1 = gamerules.getBoolean(GameRules.RULE_REDUCEDDEBUGINFO);
+        boolean flag2 = gamerules.getBoolean(GameRules.RULE_LIMITED_CRAFTING);
+        pConnection.send(
+            new ClientboundLoginPacket(
+                pPlayer.getId(),
+                leveldata.isHardcore(),
+                getServer().levelKeys(),
+                this.getMaxPlayers(),
+                this.getViewDistance(),
+                this.getSimulationDistance(),
+                flag1,
+                !flag,
+                flag2,
+                pPlayer.createCommonSpawnInfo(serverlevel1),
+                getServer().enforceSecureProfile()
+            )
+        );
+        /////////////////////////////////////////////////////////////
 
         System.out.println("Sending rest of client bound packets");
         pConnection.send(new ClientboundChangeDifficultyPacket(leveldata.getDifficulty(), leveldata.isDifficultyLocked()));
