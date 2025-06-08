@@ -24,17 +24,18 @@ public class ClientLevelMixin {
 
     @Inject(method = "addEntity",at = @At("HEAD"))
     public void addEntity(Entity pEntity, CallbackInfo ci){
-        System.out.println("addEntity: "+ pEntity.getName().getString() + " id:" + pEntity.getId());
+        //System.out.println("addEntity: "+ pEntity.getName().getString() + " id:" + pEntity.getId());
     }
 
     @Inject(method = "removeEntity",at = @At("HEAD"))
     public void removeEntity(int pEntityId, Entity.RemovalReason pReason, CallbackInfo ci){
+        /*
         if(Minecraft.getInstance().player == null) return;
         int me = Minecraft.getInstance().player.getId();
 
         if(pEntityId == me) {
             System.out.println("ELIMINADO JUGADOR "+ pReason.name());
             Thread.dumpStack();
-        }
+        }*/
     }
 }

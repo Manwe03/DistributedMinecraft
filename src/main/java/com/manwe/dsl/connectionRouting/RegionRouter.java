@@ -38,8 +38,9 @@ public class RegionRouter {
     private final EventLoopGroup ioGroup;
 
     //Topology information
-    private final int workerSize = DSLServerConfigs.WORKER_SIZE.get();
-    private final int regionSize = DSLServerConfigs.REGION_SIZE.get();
+    private static final int nWorkers = DSLServerConfigs.WORKER_SIZE.get();
+    private static final int regionSize = DSLServerConfigs.REGION_SIZE.get();
+    private static final int workerId = DSLServerConfigs.WORKER_ID.get();
 
     public RegionRouter(ProxyDedicatedServer server){
         this.ioGroup = new NioEventLoopGroup(1);  //TODO especificar numero correcto de hilos
@@ -139,7 +140,9 @@ public class RegionRouter {
     }
 
     /**
-     * @return The ID of the server allocated to this position (in block coordinates)
+     * @param x block coordinates
+     * @param z block coordinates
+     * @return The ID of the server allocated to this position
      */
     public static int computeWorkerId(int x, int z, int nWorkers, int regionSize){
         if(nWorkers == 1) return 1;
@@ -161,6 +164,59 @@ public class RegionRouter {
         int offset = (nRegions == 0) ? 1 : (int) Math.floor(Math.log(nRegions) / Math.log(2)) + 2;
 
         return base + offset;
+    }
+
+    /**
+     * @param x chunk coordinates
+     * @param z chunk coordinates
+     * @return The ID of the server allocated to this position
+     */
+    public static boolean isChunkInWorkerDomain(int x, int z){
+        if(nWorkers == 1) return true;
+        if (nWorkers == 2) return z >= 0 ? workerId == 1 : workerId == 2;
+        if (nWorkers % 4 != 0) throw new RuntimeException("Invalid number of workers n:"+nWorkers+". Valid numbers are 1, 2 or any other number divisible by 4");
+
+        //To file region cords 512*512
+        int regionX = x >> 5;
+        int regionZ = z >> 5;
+
+        int nWorkersCuad = nWorkers/4;
+        int quad = (regionX >= 0 ? 0 : 2) + (regionZ < 0 ? 1 : 0);
+        int base = quad * nWorkersCuad; //base id of the quad
+
+        //Longest cord in abs
+        int maxSide = Math.max(Math.abs(regionX),Math.abs(regionZ));
+
+        int nRegions = maxSide / regionSize;
+        int offset = (nRegions == 0) ? 1 : (int) Math.floor(Math.log(nRegions) / Math.log(2)) + 2;
+
+        return workerId == base + offset;
+    }
+
+    /**
+     * @param pChunkPos long format of chunk coordinates
+     * @return The ID of the server allocated to this position
+     */
+    public static boolean isChunkInWorkerDomain(long pChunkPos){
+        //To file region cords 512*512
+        int x = ((int) (pChunkPos)) >> 5;
+        int z = ((int) (pChunkPos >>> 32)) >> 5;
+
+        if(nWorkers == 1) return true;
+        if (nWorkers == 2) return z >= 0 ? workerId == 1 : workerId == 2;
+        if (nWorkers % 4 != 0) throw new RuntimeException("Invalid number of workers n:"+nWorkers+". Valid numbers are 1, 2 or any other number divisible by 4");
+
+        int nWorkersCuad = nWorkers/4;
+        int quad = (x >= 0 ? 0 : 2) + (z < 0 ? 1 : 0);
+        int base = quad * nWorkersCuad; //base id of the quad
+
+        //Longest cord in abs
+        int maxSide = Math.max(Math.abs(x),Math.abs(z));
+
+        int nRegions = maxSide / regionSize;
+        int offset = (nRegions == 0) ? 1 : (int) Math.floor(Math.log(nRegions) / Math.log(2)) + 2;
+
+        return workerId == base + offset;
     }
 
     /**

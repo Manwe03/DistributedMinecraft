@@ -192,7 +192,7 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleMovePlayer(@NotNull ServerboundMovePlayerPacket pPacket) {
-        System.out.println("Send Movement");
+        //System.out.println("Send Movement");
         WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
         tunnel.send(new WorkerBoundContainerPacket(player.getUUID(), pPacket)); //Send wrapped movement packet
     }

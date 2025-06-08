@@ -35,10 +35,11 @@ public abstract class LocalPlayerMixin {
 
     @Inject(method = "sendPosition", at = @At("HEAD"))
     private void sendPosition(CallbackInfo ci){
+        /*
         if (this.isControlledCamera()) {
             System.out.println("Send Movement");
         }else {
             System.out.println("Not Send Movement, isControlledCamera false");
-        }
+        }*/
     }
 }

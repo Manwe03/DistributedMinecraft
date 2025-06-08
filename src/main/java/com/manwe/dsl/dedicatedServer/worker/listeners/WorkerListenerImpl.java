@@ -123,39 +123,52 @@ public class WorkerListenerImpl implements WorkerListener {
     public void handlePlayerLogin(WorkerBoundPlayerInitPacket packet) {
         System.out.println("Worker: handlePlayerLogin");
 
-        System.out.println("connections tick list pre login");
-        System.out.println(Arrays.toString(server.getConnection().getConnections().toArray()));
-
         ServerPlayer player = packet.rebuildServerPlayer(server);
         CommonListenerCookie cookie = packet.rebuildCookie();
         DistributedServerLevels.LOGGER.info("New player ["+player.getDisplayName().getString()+"] logged into worker ["+ DSLServerConfigs.WORKER_ID.get()+"]");
-        System.out.println("GameProfile " + player.getGameProfile());
 
         Connection proxyConnection = generateConnection(player, cookie);
 
-        //System.out.println("Connection PacketListener "+connection.getPacketListener());
-        //System.out.println("Player PacketListener "+player.connection);
-        System.out.println("handlePlayerLogin io?");
-        System.out.println(Thread.currentThread());
-
         server.execute(()-> {
-            System.out.println("handlePlayerLogin server?");
-            System.out.println(Thread.currentThread());
             if(!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("PlayerList is not an instance of LocalPlayerList");
 
-            Runnable pending = localPlayerList.placeNewPlayer(proxyConnection, player, cookie, sharedPipeline);
+            localPlayerList.placeNewPlayer(proxyConnection, player, cookie, sharedPipeline);
+            registerPlayerAndConnection(player, proxyConnection);
 
-            pendingLogin.put(player.getUUID(),pending);
-
-            //Add this connection to the player connections (marked as finalized)
-            playerConnections.put(player.getUUID(), proxyConnection); //Set this connection as a player connection only after player is placed in world
             System.out.println("Player ["+player.getDisplayName().getString()+"] placed in world");
-            System.out.println("Tras Login: " + player.getX() + ":" + player.getY() + ":" + player.getZ() + " tickCount=" + player.tickCount + " isAlive=" + player.isAlive() + " isSleeping=" + player.isSleeping() + " noPhysics=" + player.noPhysics + " BoundingBox="+player.getBoundingBox() + " DeltaMovement="+ player.getDeltaMovement() + " OnGround=" + player.onGround() + " isFallFlying=" + player.isFallFlying());
-            System.out.flush();
-
-            //Add listener for ticking
-            server.getConnection().getConnections().add(proxyConnection);
         });
+    }
+
+    /**
+     * Handles player transfer request from proxy
+     * @param packet
+     */
+    @Override
+    public void handlePlayerTransfer(WorkerBoundPlayerTransferPacket packet) {
+        System.out.println("Worker: handlePlayerTransfer");
+
+        ServerPlayer clonePlayer = packet.rebuildServerPlayer(server);
+        CommonListenerCookie cookie = packet.rebuildCookie();
+        DistributedServerLevels.LOGGER.info("New player [" + clonePlayer.getDisplayName().getString() + "] transferred into worker [" + DSLServerConfigs.WORKER_ID.get() + "]");
+
+        clonePlayer.load(packet.getPlayerNbt());
+
+        Connection proxyConnection = generateConnection(clonePlayer, cookie);
+
+        server.execute(()-> {
+            if (!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("Worker must have a localPlayerList");
+
+            localPlayerList.transferExistingPlayer(clonePlayer, packet.getPlayerNbt());
+            DistributedServerLevels.LOGGER.info("Player [" + clonePlayer.getDisplayName().getString() + "] placed in world at X:" + clonePlayer.getX() + " Z:" + clonePlayer.getZ());
+
+            sharedPipeline.writeAndFlush(new ProxyBoundPlayerTransferACKPacket(this.workerId, clonePlayer.getUUID())); //Send Setup to proxy router for the new worker redirection
+            registerPlayerAndConnection(clonePlayer, proxyConnection);
+        });
+    }
+
+    private void registerPlayerAndConnection(ServerPlayer player, Connection proxyConnection) {
+        playerConnections.put(player.getUUID(), proxyConnection); //Set this connection as a player connection only after player is placed in world
+        server.getConnection().getConnections().add(proxyConnection); //Add listener for ticking
     }
 
     @Override
@@ -199,50 +212,10 @@ public class WorkerListenerImpl implements WorkerListener {
         return connection;
     }
 
-    /**
-     * Handles player transfer request from proxy
-     * @param packet
-     */
-    @Override
-    public void handlePlayerTransfer(WorkerBoundPlayerTransferPacket packet) {
-        System.out.println("Worker: handlePlayerTransfer");
-        // 2. Crear un ServerPlayer “vacío” con el mismo GameProfile
-        ServerPlayer clonePlayer = packet.rebuildServerPlayer(server);
-        CommonListenerCookie cookie = packet.rebuildCookie();
-        // 3. Cargar estado
-        clonePlayer.load(packet.getPlayerNbt());
-
-        //LOG
-        ListTag listtag = packet.getPlayerNbt().getList("Pos", 6);
-        System.out.print(
-                "Tag information position: \n"+
-                "X:" + Mth.clamp(listtag.getDouble(0), -3.0000512E7, 3.0000512E7)  + "\n" +
-                "Y:" + Mth.clamp(listtag.getDouble(1), -2.0E7, 2.0E7)              + "\n" +
-                "Z:" + Mth.clamp(listtag.getDouble(2), -3.0000512E7, 3.0000512E7)  + "\n"
-        );
-        //LOG
-
-        DistributedServerLevels.LOGGER.info("New player [" + clonePlayer.getDisplayName().getString() + "] transferred into worker [" + DSLServerConfigs.WORKER_ID.get() + "]");
-
-        //Añadir el player al mundo
-        Connection connection = generateConnection(clonePlayer, cookie);
-
-        if (!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("Worker must have a localPlayerList");
-
-        localPlayerList.transferExistingPlayer(clonePlayer,packet.getPlayerNbt());
-        DistributedServerLevels.LOGGER.info("Player [" + clonePlayer.getDisplayName().getString() + "] placed in world at X:"+clonePlayer.getX()+" Z:"+clonePlayer.getZ());
-        //Mandar un ACK
-        sharedPipeline.writeAndFlush(new ProxyBoundPlayerTransferACKPacket(this.workerId, clonePlayer.getUUID()));
-
-        System.out.println("add to tick list");
-        System.out.flush();
-        //Add listener for ticking
-        server.getConnection().getConnections().add(connection);
-    }
-
     //Proxy detected a player disconnection
     @Override
     public void handlePlayerDisconnect(WorkerBoundPlayerDisconnectPacket packet) {
+        System.out.println("handlePlayerDisconnect");
         UUID playerId = packet.getPlayerID();
         server.execute(()->{ //Run on the minecraft main thread instead of the I/O thread
             ServerPlayer disconnectedPlayer = server.getPlayerList().getPlayer(playerId);
