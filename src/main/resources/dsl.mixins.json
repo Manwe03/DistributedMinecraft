@@ -6,13 +6,29 @@
   "mixins": [
     "MainMixin",
     "MinecraftServerInvoker",
+    "ServerLevelMixin",
     "accessors.ConnectionAccessor",
     "accessors.DedicatedServerAccessor",
+    "accessors.EntityAccessor",
     "accessors.MinecraftServerAccessor",
     "accessors.PlayerListAccessor",
     "accessors.ServerConnectionListenerAccessor",
-    "accessors.ServerGamePacketListenerImplAccessor"
+    "accessors.ServerGamePacketListenerImplAccessor",
+    "accessors.ServerLevelAccessor",
+    "accessors.SynchedEntityDataAccessor",
+    "chunk.ChunkTrackingViewMixin",
+    "chunk.DistanceManagerMixin",
+    "chunk.TickingTrackerMixin",
+    "invokers.ServerGamePacketListenerImplInvoker",
+    "log.ClientboundLoginPacketMixin",
+    "log.PlayerListMixin",
+    "log.PlayerMixin",
+    "log.ServerPlayerMixin"
   ],
   "client": [
+    "log.ClientLevelInvoker",
+    "log.ClientLevelMixin",
+    "log.ClientPacketListenerMixin",
+    "log.LocalPlayerMixin"
   ]
 }

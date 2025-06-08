@@ -7,10 +7,12 @@ import com.manwe.dsl.arbiter.ConnectionInfo;
 import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.dedicatedServer.worker.LocalPlayerList;
 import com.manwe.dsl.mixin.accessors.DedicatedServerAccessor;
+import com.manwe.dsl.mixin.accessors.EntityAccessor;
 import com.mojang.datafixers.DataFixer;
 import net.minecraft.*;
 import net.minecraft.server.*;
 import net.minecraft.server.dedicated.*;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.progress.ChunkProgressListenerFactory;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.players.GameProfileCache;
@@ -39,9 +41,13 @@ import java.util.function.BooleanSupplier;
 public class ProxyDedicatedServer extends DedicatedServer {
 
     URI arbiterUri = URI.create(DSLServerConfigs.ARBITER_ADDR.get());
+    boolean isProxy = DSLServerConfigs.IS_PROXY.get();
+    int workerSize = DSLServerConfigs.WORKER_SIZE.get();
+    int workerId = DSLServerConfigs.WORKER_ID.get();
     ArbiterClient arbiterClient = new ArbiterClient(arbiterUri);
     private DedicatedPlayerList localRemotePlayerListRef;
     private ArbiterClient.ArbiterRes topology;
+    private static final int SHARD_MAX_ENTITIES = 1_000_000;
 
     public ProxyDedicatedServer(Thread pServerThread, LevelStorageSource.LevelStorageAccess pStorageSource, PackRepository pPackRepository, WorldStem pWorldStem, DedicatedServerSettings pSettings, DataFixer pFixerUpper, Services pServices, ChunkProgressListenerFactory pProgressListenerFactory) {
         super(pServerThread, pStorageSource, pPackRepository, pWorldStem, pSettings, pFixerUpper, pServices, pProgressListenerFactory);
@@ -53,6 +59,18 @@ public class ProxyDedicatedServer extends DedicatedServer {
 
     @Override
     public boolean initServer() throws IOException {
+        try {
+            topology = arbiterClient.fetch();
+            System.out.println("Port from Arbiter: "+topology.port);
+        } catch (Exception ex) {
+            DistributedServerLevels.LOGGER.error("Unexpected Error",ex);
+            throw new RuntimeException("Arbiter unavailable cannot fetch port and role");
+        }
+
+        if(!isProxy){
+            EntityAccessor.getEntityCounter().set((workerId - 1) * SHARD_MAX_ENTITIES); //Set exclusive entity ids for each worker
+        }
+
         Thread thread = new Thread("Server console handler") {
             @Override
             public void run() {
@@ -100,16 +118,8 @@ public class ProxyDedicatedServer extends DedicatedServer {
             inetaddress = InetAddress.getByName(this.getLocalIp());
         }
 
-
-        try {
-            topology = arbiterClient.fetch();
-            this.setPort(topology.port);
-            System.out.println("From Arbiter: "+topology.port);
-        } catch (Exception ex) {
-            DistributedServerLevels.LOGGER.error("Unexpected Error",ex);
-            throw new RuntimeException("Arbiter unavailable cannot fetch port and role");
-        }
-
+        //SET PORT
+        this.setPort(topology.port);
 
         this.initializeKeyPair();
         DistributedServerLevels.LOGGER.info("Starting Minecraft server on {}:{}", this.getLocalIp().isEmpty() ? "*" : this.getLocalIp(), this.getPort());
@@ -146,7 +156,7 @@ public class ProxyDedicatedServer extends DedicatedServer {
         if (!OldUsersConverter.serverReadyAfterUserconversion(this)) {
             return false;
         } else {
-            if(DSLServerConfigs.IS_PROXY.get()){
+            if(isProxy){
                 //Set RemotePlayerList
                 localRemotePlayerListRef = new RemotePlayerList(this, this.registries(), this.playerDataStorage);
             }else {
@@ -208,6 +218,12 @@ public class ProxyDedicatedServer extends DedicatedServer {
     @Override
     public void tickServer(BooleanSupplier pHasTimeLeft) {
         super.tickServer(pHasTimeLeft);
+    }
+
+    @Override
+    public void tickChildren(BooleanSupplier pHasTimeLeft) {
+        //System.out.println("TICK CHILDREN");
+        super.tickChildren(pHasTimeLeft);
     }
 
     public boolean isProxy(){

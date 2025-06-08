@@ -1,6 +1,7 @@
 package com.manwe.dsl.dedicatedServer.proxy;
 
 import com.manwe.dsl.connectionRouting.RegionRouter;
+import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
 import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListenerImpl;
 import com.manwe.dsl.dedicatedServer.InternalGameProtocols;
 import com.manwe.dsl.mixin.accessors.ConnectionAccessor;
@@ -11,8 +12,11 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.flow.FlowControlHandler;
 import net.minecraft.network.*;
 import net.minecraft.network.protocol.PacketFlow;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.level.storage.LevelResource;
 
 import java.net.InetSocketAddress;
+import java.nio.file.Path;
 
 /**
  * Cliente del Proxy hacia los workers
@@ -22,10 +26,12 @@ public class WorkerTunnel {
     private final Connection connection;
     private final Channel channel;
 
-    public WorkerTunnel(InetSocketAddress workerAddress, RegionRouter router) {        // para mandar C→S←W
+    public WorkerTunnel(InetSocketAddress workerAddress, RegionRouter router, MinecraftServer server) {        // para mandar C→S←W
         System.out.println("WorkerTunnel Iniciado Cliente: Proxy -> Worker");
-        this.workerAddress = workerAddress;
 
+        Path playerDir = server.getWorldPath(LevelResource.PLAYER_DATA_DIR);
+
+        this.workerAddress = workerAddress;
         this.connection = new  Connection(PacketFlow.CLIENTBOUND);
         this.channel = new Bootstrap() // Inicialización del cliente
                 .group(router.getEventLoopGroup())
@@ -44,7 +50,7 @@ public class WorkerTunnel {
                         pipeline.addLast("encoder", new PacketEncoder<>(InternalGameProtocols.SERVERBOUND));
 
                         connection.configurePacketHandler(pipeline);
-                        ProxyListenerImpl listener = new ProxyListenerImpl(pipeline, router);
+                        ProxyListenerImpl listener = new ProxyListenerImpl(pipeline, router,playerDir);
                         ((ConnectionAccessor) connection).setPacketListener(listener);
 
                     }
@@ -77,6 +83,14 @@ public class WorkerTunnel {
         //Configuración vanilla
         Connection.configureSerialization(connection.channel().pipeline(), PacketFlow.CLIENTBOUND, false, null);
         //connection.configurePacketHandler(connection.channel().pipeline());
+    }
+
+    /**
+     * Returns the packetListener for the incoming packets to this tunnel
+     */
+    public ProxyListener getPacketListener(){
+        if(!(connection.getPacketListener() instanceof ProxyListener conn)) throw new RuntimeException("PacketListener associated to this tunnel is not a ProxyListener");
+        return conn;
     }
 
     public void sendDisconect(){

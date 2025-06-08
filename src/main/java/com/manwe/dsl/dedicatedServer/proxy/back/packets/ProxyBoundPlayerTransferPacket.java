@@ -24,6 +24,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
     private final GameProfile gameProfile;
     private final ClientInformation clientInformation;
     private final TransientEntityInformation entityInformation;
+    private final int entityId;
 
     public static final StreamCodec<FriendlyByteBuf, ProxyBoundPlayerTransferPacket> STREAM_CODEC =
             Packet.codec(ProxyBoundPlayerTransferPacket::write, ProxyBoundPlayerTransferPacket::new);
@@ -36,6 +37,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         System.out.println("Player being transferred to position X:"+ player.getX()+" Z:"+player.getZ());
         player.saveWithoutId(this.playerNbt);
         this.entityInformation = new TransientEntityInformation(player.getYRot(),player.getXRot());
+        this.entityId = player.getId();
     }
 
     public ProxyBoundPlayerTransferPacket(FriendlyByteBuf buf) {
@@ -46,6 +48,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         this.gameProfile = new GameProfile(uuid,name);
         this.clientInformation = new ClientInformation(buf);
         this.entityInformation = new TransientEntityInformation(buf);
+        this.entityId = buf.readInt();
     }
     private void write(FriendlyByteBuf buf) {
         buf.writeInt(this.workerId);
@@ -54,6 +57,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         buf.writeUtf(this.gameProfile.getName(),255);
         this.clientInformation.write(buf);
         this.entityInformation.write(buf);
+        buf.writeInt(this.entityId);
     }
 
     public ClientInformation getClientInformation() {
@@ -74,6 +78,10 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
 
     public TransientEntityInformation getEntityInformation() {
         return entityInformation;
+    }
+
+    public int getEntityId() {
+        return this.entityId;
     }
 
     /**

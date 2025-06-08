@@ -28,6 +28,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
     private final GameProfile gameProfile;
     private final ClientInformation clientInformation;
     private final TransientEntityInformation entityInformation;
+    private final int entityId;
 
     public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerTransferPacket> STREAM_CODEC =
             Packet.codec(WorkerBoundPlayerTransferPacket::write, WorkerBoundPlayerTransferPacket::new);
@@ -38,6 +39,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         this.clientInformation = packet.getClientInformation();
         this.playerNbt = packet.getPlayerNbt();
         this.entityInformation = packet.getEntityInformation();
+        this.entityId = packet.getEntityId();
     }
 
     public WorkerBoundPlayerTransferPacket(FriendlyByteBuf buf) {
@@ -51,6 +53,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         this.clientInformation = new ClientInformation(buf);
         //TransientEntityInformation
         this.entityInformation = new TransientEntityInformation(buf);
+        this.entityId = buf.readInt();
     }
     private void write(FriendlyByteBuf buf) {
         buf.writeInt(this.workerId);
@@ -62,6 +65,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         this.clientInformation.write(buf);
         //TransientEntityInformation
         this.entityInformation.write(buf);
+        buf.writeInt(this.entityId);
     }
 
     public ClientInformation getClientInformation() {
@@ -85,7 +89,9 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
     }
 
     public ServerPlayer rebuildServerPlayer(MinecraftServer server) {
-        return new ServerPlayer(server, server.overworld(), this.gameProfile, this.clientInformation);
+        ServerPlayer clone = new ServerPlayer(server, server.overworld(), this.gameProfile, this.clientInformation);
+        clone.setId(this.entityId); //Clone the id assigned by its source worker, entity id do not collide between workers each worker has its own id range
+        return clone;
     }
 
     public CommonListenerCookie rebuildCookie(){
