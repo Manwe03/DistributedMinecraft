@@ -32,7 +32,6 @@ public class ProxyPlayerConnection extends Connection {
     public void send(Packet<?> pPacket, @Nullable PacketSendListener pListener, boolean pFlush) {
         try {
             ProxyBoundContainerPacket newPacket = new ProxyBoundContainerPacket(playerId, (Packet<ClientGamePacketListener>) pPacket, this.workerRegistryAccess);
-
             super.send(newPacket, pListener, pFlush);
         }catch (Exception e){
             DistributedServerLevels.LOGGER.warn("Worker tried to send an unknown packet", e);

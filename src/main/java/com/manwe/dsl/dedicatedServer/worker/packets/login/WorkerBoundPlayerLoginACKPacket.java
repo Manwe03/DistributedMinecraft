@@ -1,4 +1,4 @@
-package com.manwe.dsl.dedicatedServer.worker.packets;
+package com.manwe.dsl.dedicatedServer.worker.packets.login;
 
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
@@ -9,19 +9,19 @@ import net.minecraft.network.protocol.PacketType;
 
 import java.util.UUID;
 
-public class WorkerBoundPlayerInitACKPacket implements Packet<WorkerListener> {
+public class WorkerBoundPlayerLoginACKPacket implements Packet<WorkerListener> {
 
     private final UUID playerId;
 
-    public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerInitACKPacket> STREAM_CODEC = Packet.codec(
-            WorkerBoundPlayerInitACKPacket::write, WorkerBoundPlayerInitACKPacket::new
+    public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerLoginACKPacket> STREAM_CODEC = Packet.codec(
+            WorkerBoundPlayerLoginACKPacket::write, WorkerBoundPlayerLoginACKPacket::new
     );
 
-    public WorkerBoundPlayerInitACKPacket(UUID playerId) {
+    public WorkerBoundPlayerLoginACKPacket(UUID playerId) {
         this.playerId = playerId;
     }
 
-    public WorkerBoundPlayerInitACKPacket(FriendlyByteBuf buf) {
+    public WorkerBoundPlayerLoginACKPacket(FriendlyByteBuf buf) {
         this.playerId = buf.readUUID();
     }
 
@@ -35,7 +35,7 @@ public class WorkerBoundPlayerInitACKPacket implements Packet<WorkerListener> {
 
     @Override
     public PacketType<? extends Packet<WorkerListener>> type() {
-        return InternalPacketTypes.PROXY_WORKER_PLAYER_INIT_ACK;
+        return InternalPacketTypes.PROXY_WORKER_PLAYER_LOGIN_ACK;
     }
 
     /**

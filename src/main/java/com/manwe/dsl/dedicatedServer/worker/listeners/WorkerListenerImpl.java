@@ -2,17 +2,26 @@ package com.manwe.dsl.dedicatedServer.worker.listeners;
 
 import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.config.DSLServerConfigs;
-import com.manwe.dsl.connectionRouting.RegionRouter;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferACKPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerDisconnectPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundSavePlayerStatePacket;
+import com.manwe.dsl.dedicatedServer.worker.FakePlayerConnection;
 import com.manwe.dsl.dedicatedServer.worker.LocalPlayerList;
+import com.manwe.dsl.dedicatedServer.worker.chunk.ChunkLoadingFakePlayer;
 import com.manwe.dsl.dedicatedServer.worker.packets.*;
 import com.manwe.dsl.dedicatedServer.worker.ProxyPlayerConnection;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerInformationPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerLoginPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerEndTransferPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerTransferPacket;
 import com.manwe.dsl.mixin.accessors.ConnectionAccessor;
-import com.manwe.dsl.mixin.accessors.ServerLevelAccessor;
+import com.manwe.dsl.mixin.accessors.ServerPlayerAccessor;
 import io.netty.channel.ChannelPipeline;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.PacketListener;
@@ -25,7 +34,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
-import net.minecraft.util.Mth;
+import net.neoforged.neoforge.common.util.FakePlayer;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
@@ -38,13 +47,9 @@ public class WorkerListenerImpl implements WorkerListener {
     private final Map<UUID, Connection> playerConnections = new ConcurrentHashMap<>();
     private final Set<UUID> transferring = new HashSet<>(); //All player that are currently being transferred to another worker
 
-    private final Map<UUID, Runnable> pendingLogin = new HashMap<>();
-
     private final Map<UUID, List<WorkerBoundContainerPacket>> earlyPackets = new ConcurrentHashMap<>();
 
     int workerId = DSLServerConfigs.WORKER_ID.get();
-    int workerSize = DSLServerConfigs.WORKER_SIZE.get();
-    int regionSize = DSLServerConfigs.REGION_SIZE.get();
 
     public WorkerListenerImpl(MinecraftServer server, ChannelPipeline sharedPipeline) {
         this.server = server;
@@ -87,7 +92,11 @@ public class WorkerListenerImpl implements WorkerListener {
         } else if(connection.getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener) {
             server.execute(()->{ //Run on the minecraft main thread instead of the I/O thread
                 ((Packet<ServerGamePacketListener>) packet.getPayload()).handle(serverGamePacketListener);
-                handleOutsideWorkerBounds(packet,server); //TODO ver si puede darse el caso de que entren varios paquetes de movimiento antes de que se marque como transferring
+            });
+        } else if (connection.getPacketListener() instanceof WorkerFakePlayerListenerImpl fakeGamePacketListener) {
+            server.execute(()->{ //Run on the minecraft main thread instead of the I/O thread
+                System.out.println("WorkerFakePlayerListenerImpl handling: "+packet.getPayload().type());
+                ((Packet<ServerGamePacketListener>) packet.getPayload()).handle(fakeGamePacketListener);
             });
         } else {
             System.out.println("ERROR inesperado");
@@ -96,46 +105,21 @@ public class WorkerListenerImpl implements WorkerListener {
         }
     }
 
-    /**
-     * Handle send transfer request to proxy and removes this connection
-     * @param packet
-     * @return transferred
-     */
-    private void handleOutsideWorkerBounds(WorkerBoundContainerPacket packet, MinecraftServer server) {
-        if(packet.getPayload() instanceof ServerboundMovePlayerPacket){
-            ServerPlayer serverPlayer = server.getPlayerList().getPlayer(packet.getPlayerId());
-            if(serverPlayer == null) throw new RuntimeException("[handleOutsideWorkerBounds()] Player not found in worker");
-            int id = RegionRouter.computeWorkerId(serverPlayer.getX(),serverPlayer.getZ(), workerSize, regionSize);
-            if(id != workerId){
-                System.out.println("Player outside worker position X:"+ serverPlayer.getX()+" Z:"+serverPlayer.getZ());
-                //Transfer
-                sharedPipeline.writeAndFlush(new ProxyBoundPlayerTransferPacket(serverPlayer, id));
-                //connection.send(new ProxyBoundPlayerTransferPacket(server, packet.getPlayerId()));
-                //Bloquear
-                transferring.add(packet.getPlayerId());
-                DistributedServerLevels.LOGGER.info("Transfer in progress block all incoming packets from ["+ packet.getPlayerId()+"] to this worker");
-            }
-        }
-        //System.out.println("Inside bounds of "+workerId);
-    }
-
     @Override
-    public void handlePlayerLogin(WorkerBoundPlayerInitPacket packet) {
-        System.out.println("Worker: handlePlayerLogin");
-
+    public void handlePlayerLogin(WorkerBoundPlayerLoginPacket packet) {
         ServerPlayer player = packet.rebuildServerPlayer(server);
         CommonListenerCookie cookie = packet.rebuildCookie();
         DistributedServerLevels.LOGGER.info("New player ["+player.getDisplayName().getString()+"] logged into worker ["+ DSLServerConfigs.WORKER_ID.get()+"]");
 
-        Connection proxyConnection = generateConnection(player, cookie);
+        Connection proxyConnection = generateConnection(player, cookie, new BitSet());
 
         server.execute(()-> {
             if(!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("PlayerList is not an instance of LocalPlayerList");
 
-            localPlayerList.placeNewPlayer(proxyConnection, player, cookie, sharedPipeline);
+            localPlayerList.placeNewPlayer(proxyConnection, player, cookie);
             registerPlayerAndConnection(player, proxyConnection);
 
-            System.out.println("Player ["+player.getDisplayName().getString()+"] placed in world");
+            DistributedServerLevels.LOGGER.info("Player [" + player.getDisplayName().getString() + "] placed in world at X:" + player.getX() + " Z:" + player.getZ());
         });
     }
 
@@ -145,24 +129,44 @@ public class WorkerListenerImpl implements WorkerListener {
      */
     @Override
     public void handlePlayerTransfer(WorkerBoundPlayerTransferPacket packet) {
-        System.out.println("Worker: handlePlayerTransfer");
-
         ServerPlayer clonePlayer = packet.rebuildServerPlayer(server);
         CommonListenerCookie cookie = packet.rebuildCookie();
         DistributedServerLevels.LOGGER.info("New player [" + clonePlayer.getDisplayName().getString() + "] transferred into worker [" + DSLServerConfigs.WORKER_ID.get() + "]");
 
         clonePlayer.load(packet.getPlayerNbt());
 
-        Connection proxyConnection = generateConnection(clonePlayer, cookie);
-
         server.execute(()-> {
             if (!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("Worker must have a localPlayerList");
 
-            localPlayerList.transferExistingPlayer(clonePlayer, packet.getPlayerNbt());
-            DistributedServerLevels.LOGGER.info("Player [" + clonePlayer.getDisplayName().getString() + "] placed in world at X:" + clonePlayer.getX() + " Z:" + clonePlayer.getZ());
+            ServerPlayer serverPlayer = localPlayerList.getPlayer(clonePlayer.getUUID());
+            if(serverPlayer instanceof ChunkLoadingFakePlayer fakePlayer){ //Fake player was preloaded in this worker
+                System.out.println("Disconnect fake player to replace it with cloned ServerPlayer");
+                fakePlayer.connection.onDisconnect(packet.getDefaultDisconnectionDetails()); //Disconnect
+            }
 
-            sharedPipeline.writeAndFlush(new ProxyBoundPlayerTransferACKPacket(this.workerId, clonePlayer.getUUID())); //Send Setup to proxy router for the new worker redirection
+            System.out.println("Transferred BitSet: " + packet.getWorkers());
+
+            Connection proxyConnection = generateConnection(clonePlayer, cookie, packet.getWorkers()); //Generate connection and listener with bitset
+
+            localPlayerList.transferExistingPlayer(clonePlayer, packet.getPlayerNbt());
             registerPlayerAndConnection(clonePlayer, proxyConnection);
+
+            this.send(new ProxyBoundPlayerTransferACKPacket(this.workerId, clonePlayer.getUUID())); //Send Setup to proxy router for the new worker redirection
+            DistributedServerLevels.LOGGER.info("Player [" + clonePlayer.getDisplayName().getString() + "] placed in world at X:" + clonePlayer.getX() + " Z:" + clonePlayer.getZ());
+        });
+    }
+
+    @Override
+    public void handleFakePlayerLogin(WorkerBoundFakePlayerLoginPacket packet) {
+        Optional<ServerLevel> serverLevel = Optional.ofNullable(server.getLevel(packet.levelResourcekey));
+        ChunkLoadingFakePlayer player = new ChunkLoadingFakePlayer(server, packet);
+        Connection proxyConnection = generateFakePlayerConnection(player, CommonListenerCookie.createInitial(packet.gameprofile,false));
+
+        server.execute(()-> {
+            if(!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("PlayerList is not an instance of LocalPlayerList");
+            localPlayerList.placeNewChunkLoadingFakePlayer(serverLevel.orElse(server.overworld()), player);
+            registerPlayerAndConnection(player, proxyConnection);
+            System.out.println("Fake Player ["+player.getDisplayName().getString()+"] placed in world at "+player.position());
         });
     }
 
@@ -172,19 +176,15 @@ public class WorkerListenerImpl implements WorkerListener {
     }
 
     @Override
-    public void handlePlayerLoginACK(WorkerBoundPlayerInitACKPacket packet) {
+    public void handlePlayerLoginACK(WorkerBoundPlayerLoginACKPacket packet) {
         System.out.println("RUNNING REST OF placeNewPlayer()");
         UUID uuid = packet.getPlayerId();
         if(!(playerConnections.get(uuid).getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener)) throw new RuntimeException("listener is not instance of WorkerGamePacketListenerImpl");
         server.execute(()-> {
-            pendingLogin.get(uuid).run(); //Run pending login
             if(earlyPackets.containsKey(uuid)){
-                System.out.println("Running stored packets");
                 earlyPackets.get(uuid).forEach(workerBoundContainerPacket -> { //Run pending packets before login completed
                     ((Packet<ServerGamePacketListener>) workerBoundContainerPacket.getPayload()).handle(serverGamePacketListener);
                 });
-            } else {
-                System.out.println("No stored packets");
             }
         });
     }
@@ -195,48 +195,108 @@ public class WorkerListenerImpl implements WorkerListener {
      * @return
      */
     @NotNull
-    private Connection generateConnection(ServerPlayer player, CommonListenerCookie cookie) {
+    private Connection generateConnection(ServerPlayer player, CommonListenerCookie cookie, BitSet preloadedWorkers) {
         //Create new connection and listener
         Connection connection = new ProxyPlayerConnection(PacketFlow.CLIENTBOUND, player.getUUID(),server.registryAccess());
-        WorkerGamePacketListenerImpl playerListener = new WorkerGamePacketListenerImpl(server,connection, player, cookie);
-        try {
-            ((ConnectionAccessor) connection).setChannel(sharedPipeline.channel());
-            ((ConnectionAccessor) connection).setPacketListener(playerListener);
-        }catch (Exception e){
-            DistributedServerLevels.LOGGER.error("Error setting channelActive");
-        }
-
-        player.connection = playerListener; //Set this players listener
-        //TODO hay que estudiar esto
-        //server.getConnection().getConnections().add(connection); //Añadir las fake connections a la lista de conexiones del servidor para que hagan tick()
+        WorkerGamePacketListenerImpl playerListener = new WorkerGamePacketListenerImpl(server,connection, player, cookie,this, preloadedWorkers);
+        ((ConnectionAccessor) connection).setChannel(sharedPipeline.channel());
+        ((ConnectionAccessor) connection).setPacketListener(playerListener);
         return connection;
     }
 
-    //Proxy detected a player disconnection
+    /**
+     * Creates the fake connection with the proxy
+     * Creates the ServerGameListener for this player
+     * @return
+     */
+    @NotNull
+    private Connection generateFakePlayerConnection(ServerPlayer player, CommonListenerCookie cookie) {
+        //Create new connection and listener
+        Connection connection = new FakePlayerConnection(PacketFlow.CLIENTBOUND, player.getUUID(),server.registryAccess());
+        WorkerFakePlayerListenerImpl playerListener = new WorkerFakePlayerListenerImpl(server,connection, player, cookie,this);
+        ((ConnectionAccessor) connection).setChannel(sharedPipeline.channel());
+        ((ConnectionAccessor) connection).setPacketListener(playerListener);
+        return connection;
+    }
+
+    /**
+     * Handle disconnection of real and fake players
+     */
     @Override
     public void handlePlayerDisconnect(WorkerBoundPlayerDisconnectPacket packet) {
-        System.out.println("handlePlayerDisconnect");
+        System.out.println("Player Disconnect Requested By Proxy Handling in worker");
         UUID playerId = packet.getPlayerID();
-        server.execute(()->{ //Run on the minecraft main thread instead of the I/O thread
-            ServerPlayer disconnectedPlayer = server.getPlayerList().getPlayer(playerId);
-            if(disconnectedPlayer == null) throw new RuntimeException("handlePlayerDisconnect: Player is null");
-            //Send last player position
-            sharedPipeline.writeAndFlush(new ProxyBoundSavePlayerStatePacket(playerId,workerId,disconnectedPlayer.position(),disconnectedPlayer.level().dimension().location().toString()));
+        boolean fakePlayer = packet.isFakePlayer();
 
-            //Disconnect (gamelogic) call to this player gameListener
+        ServerPlayer disconnectedPlayer = server.getPlayerList().getPlayer(playerId);
+        if(disconnectedPlayer == null) throw new RuntimeException("handlePlayerDisconnect: Player is null"); //TODO puede darse este problema
+
+        if(!fakePlayer) this.send(new ProxyBoundSavePlayerStatePacket(playerId, workerId, disconnectedPlayer.position(), disconnectedPlayer.level().dimension().location().toString()));
+
+        server.execute(()->{ //Run on the minecraft main thread instead of the I/O thread
+            //Disconnect (game logic) call to this player gameListener
             PacketListener gameListener = getDedicatedPlayerListener(playerId);
-            gameListener.onDisconnect(packet.getDefaultDisconnectionDetails()); //TODO hay que ver si todo este método hay que ejecutarlo o solo partes de el
-            //Remove from map
-            Connection removed = playerConnections.remove(playerId);
-            //Remove from ServerConnectionListener to stop tick() and avoid duplicates
-            server.getConnection().getConnections().remove(removed);
-            //Remove form transferring
-            transferring.remove(playerId);
+            gameListener.onDisconnect(packet.getDefaultDisconnectionDetails());
+
+            Connection removed = playerConnections.remove(playerId);//Remove from map
+            server.getConnection().getConnections().remove(removed);//Remove from ServerConnectionListener to stop tick() and avoid duplicates
         });
+    }
+
+    /**
+     * Handle disconnection of transferred players
+     */
+    @Override
+    public void handlePlayerEndTransfer(WorkerBoundPlayerEndTransferPacket packet) {
+        UUID playerId = packet.getPlayerID();
+        server.execute(()->{
+            //Disconnect (game logic) call to this player gameListener
+            PacketListener gameListener = getDedicatedPlayerListener(playerId);
+            gameListener.onDisconnect(packet.getDefaultDisconnectionDetails());
+            Connection removed = playerConnections.remove(playerId); //Remove from map
+            server.getConnection().getConnections().remove(removed); //Remove from ServerConnectionListener to stop tick() and avoid duplicates
+            setFinishTransfering(playerId); //Remove form transferring
+        });
+    }
+
+    @Override
+    public void handleFakePlayerMove(WorkerBoundFakePlayerMovePacket packet) {
+        ServerPlayer serverPlayer = server.getPlayerList().getPlayer(packet.getPlayerId());
+        if(serverPlayer instanceof ChunkLoadingFakePlayer fakePlayer){
+            fakePlayer.absMoveTo(packet.getPos().x,packet.getPos().y,packet.getPos().z);
+            System.out.println("Fake Player absMoveTo: " + fakePlayer.position());
+        }
+        System.out.println("PlayerList:");
+        server.getPlayerList().getPlayers().forEach(System.out::println);
+    }
+
+    @Override
+    public void handleFakePlayerInformation(WorkerBoundFakePlayerInformationPacket packet) {
+        ServerPlayer player = server.getPlayerList().getPlayer(packet.getPlayerId());
+        if(player instanceof ChunkLoadingFakePlayer fakePlayer){
+            fakePlayer.setFakePlayerRequestedViewDistance(packet.getViewDistance());
+        } else {
+            DistributedServerLevels.LOGGER.error("Tried to set view distance to a fake player that does not exists");
+        }
     }
 
     private PacketListener getDedicatedPlayerListener(UUID playerId){
         return this.playerConnections.get(playerId).getPacketListener();
+    }
+
+    public void setTransfering(UUID playerId){
+        transferring.add(playerId);
+    }
+
+    public void setFinishTransfering(UUID playerId){
+        transferring.remove(playerId);
+    }
+
+    /**
+     * Send unwrapped ProxyBound packets
+     */
+    public void send(Packet<ProxyListener> packet){
+        sharedPipeline.writeAndFlush(packet);
     }
 
     @Override

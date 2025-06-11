@@ -30,7 +30,7 @@ public class WorkerFrontendInit extends ChannelInitializer<Channel> {
         //Codecs
         pipeline.addLast("splitter", new Varint21FrameDecoder(null))
                 .addLast(new FlowControlHandler())
-                .addLast("decoder", new PacketDecoder<>(InternalGameProtocols.SERVERBOUND)) //Debería decodificar los paquetes WorkerBoundPlayerInitPacket
+                .addLast("decoder", new PacketDecoder<>(InternalGameProtocols.SERVERBOUND)) //Debería decodificar los paquetes WorkerBoundPlayerLoginPacket
                 .addLast("prepender", new Varint21LengthFieldPrepender())
                 .addLast("encoder", new PacketEncoder<>(InternalGameProtocols.CLIENTBOUND));
         //Conexión

@@ -1,14 +1,14 @@
-package com.manwe.dsl.dedicatedServer.worker.packets;
+package com.manwe.dsl.dedicatedServer.worker.packets.transfer;
 
 import com.manwe.dsl.connectionRouting.TransientEntityInformation;
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
-import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.ProxyBoundPlayerTransferPacket;
-import com.manwe.dsl.dedicatedServer.worker.LocalPlayerList;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketType;
@@ -18,7 +18,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.neoforged.neoforge.network.connection.ConnectionType;
 
-import java.util.Objects;
+import java.util.BitSet;
+import java.util.Optional;
 import java.util.UUID;
 
 public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
@@ -29,6 +30,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
     private final ClientInformation clientInformation;
     private final TransientEntityInformation entityInformation;
     private final int entityId;
+    private final BitSet workers;
 
     public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerTransferPacket> STREAM_CODEC =
             Packet.codec(WorkerBoundPlayerTransferPacket::write, WorkerBoundPlayerTransferPacket::new);
@@ -40,6 +42,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         this.playerNbt = packet.getPlayerNbt();
         this.entityInformation = packet.getEntityInformation();
         this.entityId = packet.getEntityId();
+        this.workers = packet.getWorkers();
     }
 
     public WorkerBoundPlayerTransferPacket(FriendlyByteBuf buf) {
@@ -54,6 +57,8 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         //TransientEntityInformation
         this.entityInformation = new TransientEntityInformation(buf);
         this.entityId = buf.readInt();
+
+        this.workers = buf.readBitSet();
     }
     private void write(FriendlyByteBuf buf) {
         buf.writeInt(this.workerId);
@@ -66,6 +71,8 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         //TransientEntityInformation
         this.entityInformation.write(buf);
         buf.writeInt(this.entityId);
+
+        buf.writeBitSet(this.workers);
     }
 
     public ClientInformation getClientInformation() {
@@ -86,6 +93,14 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
 
     public TransientEntityInformation getEntityInformation() {
         return entityInformation;
+    }
+
+    public BitSet getWorkers() {
+        return workers;
+    }
+
+    public DisconnectionDetails getDefaultDisconnectionDetails(){
+        return new DisconnectionDetails(Component.translatable("disconnect.disconnected"), Optional.empty(),Optional.empty());
     }
 
     public ServerPlayer rebuildServerPlayer(MinecraftServer server) {

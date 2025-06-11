@@ -4,13 +4,11 @@ import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.connectionRouting.RegionRouter;
 import com.manwe.dsl.dedicatedServer.proxy.WorkerTunnel;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
-import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerDisconnectPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundContainerPacket;
 import io.netty.channel.ChannelFuture;
-import net.minecraft.Util;
 import net.minecraft.network.Connection;
 import net.minecraft.network.DisconnectionDetails;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
@@ -237,7 +235,7 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
     public void onDisconnect(DisconnectionDetails pDetails) {
         DistributedServerLevels.LOGGER.info("{} lost connection: {}", this.player.getName().getString(), pDetails.reason().getString());
         WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
-        tunnel.send(new WorkerBoundPlayerDisconnectPacket(this.player.getUUID()));
+        tunnel.send(new WorkerBoundPlayerDisconnectPacket(this.player.getUUID(),false));
     }
 
     /**

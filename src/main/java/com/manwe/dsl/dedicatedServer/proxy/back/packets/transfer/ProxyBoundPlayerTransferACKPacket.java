@@ -1,4 +1,4 @@
-package com.manwe.dsl.dedicatedServer.proxy.back.packets;
+package com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer;
 
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
@@ -9,22 +9,30 @@ import net.minecraft.network.protocol.PacketType;
 
 import java.util.UUID;
 
-public class ProxyBoundPlayerInitACKPacket implements Packet<ProxyListener> {
+public class ProxyBoundPlayerTransferACKPacket implements Packet<ProxyListener> {
 
+    private final int workerId; //Owner of this packet
     private final UUID playerId; //Player successfully transferred
 
-    public static final StreamCodec<FriendlyByteBuf, ProxyBoundPlayerInitACKPacket> STREAM_CODEC =
-            Packet.codec(ProxyBoundPlayerInitACKPacket::write, ProxyBoundPlayerInitACKPacket::new);
+    public static final StreamCodec<FriendlyByteBuf, ProxyBoundPlayerTransferACKPacket> STREAM_CODEC =
+            Packet.codec(ProxyBoundPlayerTransferACKPacket::write, ProxyBoundPlayerTransferACKPacket::new);
 
-    public ProxyBoundPlayerInitACKPacket(UUID playerId) {
+    public ProxyBoundPlayerTransferACKPacket(int workerId, UUID playerId) {
+        this.workerId = workerId;
         this.playerId = playerId;
     }
 
-    public ProxyBoundPlayerInitACKPacket(FriendlyByteBuf buf) {
+    public ProxyBoundPlayerTransferACKPacket(FriendlyByteBuf buf) {
+        this.workerId = buf.readInt();
         this.playerId = buf.readUUID();
     }
     private void write(FriendlyByteBuf buf) {
+        buf.writeInt(this.workerId);
         buf.writeUUID(this.playerId);
+    }
+
+    public int getWorkerId() {
+        return workerId;
     }
 
     public UUID getPlayerId() {
@@ -38,11 +46,11 @@ public class ProxyBoundPlayerInitACKPacket implements Packet<ProxyListener> {
      */
     @Override
     public void handle(ProxyListener pHandler) {
-        pHandler.handlePlayerInitACK(this);
+        pHandler.handlePlayerTransferACK(this);
     }
 
     @Override
     public PacketType<? extends Packet<ProxyListener>> type() {
-        return InternalPacketTypes.WORKER_PROXY_PLAYER_INIT_ACK;
+        return InternalPacketTypes.WORKER_PROXY_PLAYER_TRANSFER_ACK;
     }
 }

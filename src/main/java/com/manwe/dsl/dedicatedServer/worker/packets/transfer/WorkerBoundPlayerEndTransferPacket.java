@@ -1,4 +1,4 @@
-package com.manwe.dsl.dedicatedServer.worker.packets;
+package com.manwe.dsl.dedicatedServer.worker.packets.transfer;
 
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
@@ -12,19 +12,19 @@ import net.minecraft.network.protocol.PacketType;
 import java.util.Optional;
 import java.util.UUID;
 
-public class WorkerBoundPlayerDisconnectPacket implements Packet<WorkerListener> {
+public class WorkerBoundPlayerEndTransferPacket implements Packet<WorkerListener> {
 
-    public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerDisconnectPacket> STREAM_CODEC = Packet.codec(
-            WorkerBoundPlayerDisconnectPacket::write, WorkerBoundPlayerDisconnectPacket::new
+    public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerEndTransferPacket> STREAM_CODEC = Packet.codec(
+            WorkerBoundPlayerEndTransferPacket::write, WorkerBoundPlayerEndTransferPacket::new
     );
 
     private final UUID playerID;
 
-    public WorkerBoundPlayerDisconnectPacket(UUID playerID){
+    public WorkerBoundPlayerEndTransferPacket(UUID playerID){
         this.playerID = playerID;
     }
 
-    public WorkerBoundPlayerDisconnectPacket(FriendlyByteBuf buf){
+    public WorkerBoundPlayerEndTransferPacket(FriendlyByteBuf buf){
         this.playerID = buf.readUUID();
     }
 
@@ -42,7 +42,7 @@ public class WorkerBoundPlayerDisconnectPacket implements Packet<WorkerListener>
 
     @Override
     public PacketType<? extends Packet<WorkerListener>> type() {
-        return InternalPacketTypes.PROXY_WORKER_CLIENT_DISCONNECT;
+        return InternalPacketTypes.PROXY_WORKER_PLAYER_END_TRANSFER;
     }
 
     /**
@@ -52,6 +52,6 @@ public class WorkerBoundPlayerDisconnectPacket implements Packet<WorkerListener>
      */
     @Override
     public void handle(WorkerListener pHandler) {
-        pHandler.handlePlayerDisconnect(this);
+        pHandler.handlePlayerEndTransfer(this);
     }
 }
