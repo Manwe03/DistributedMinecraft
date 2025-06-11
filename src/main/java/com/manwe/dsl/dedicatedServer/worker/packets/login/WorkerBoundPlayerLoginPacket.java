@@ -1,4 +1,4 @@
-package com.manwe.dsl.dedicatedServer.worker.packets;
+package com.manwe.dsl.dedicatedServer.worker.packets.login;
 
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
@@ -16,15 +16,15 @@ import net.neoforged.neoforge.network.connection.ConnectionType;
 
 import java.util.UUID;
 
-public class WorkerBoundPlayerInitPacket implements Packet<WorkerListener> {
-    public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerInitPacket> STREAM_CODEC = Packet.codec(
-            WorkerBoundPlayerInitPacket::write, WorkerBoundPlayerInitPacket::new
+public class WorkerBoundPlayerLoginPacket implements Packet<WorkerListener> {
+    public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerLoginPacket> STREAM_CODEC = Packet.codec(
+            WorkerBoundPlayerLoginPacket::write, WorkerBoundPlayerLoginPacket::new
     );
 
     private final GameProfile gameProfile;
     private final ClientInformation clientInformation;
 
-    public WorkerBoundPlayerInitPacket(GameProfile gameProfile, ClientInformation clientInformation) {
+    public WorkerBoundPlayerLoginPacket(GameProfile gameProfile, ClientInformation clientInformation) {
         this.gameProfile = gameProfile;
         this.clientInformation = clientInformation;
     }
@@ -37,7 +37,7 @@ public class WorkerBoundPlayerInitPacket implements Packet<WorkerListener> {
         this.clientInformation.write(buf);
     }
 
-    public WorkerBoundPlayerInitPacket(FriendlyByteBuf buf) {
+    public WorkerBoundPlayerLoginPacket(FriendlyByteBuf buf) {
         UUID uuid = buf.readUUID();
         String name = buf.readUtf(255);
         this.gameProfile = new GameProfile(uuid,name);
@@ -80,7 +80,7 @@ public class WorkerBoundPlayerInitPacket implements Packet<WorkerListener> {
 
     @Override
     public PacketType<? extends Packet<WorkerListener>> type() {
-        return InternalPacketTypes.PROXY_WORKER_CLIENT_LOGIN;
+        return InternalPacketTypes.PROXY_WORKER_PLAYER_LOGIN;
     }
 
     /**
@@ -88,7 +88,7 @@ public class WorkerBoundPlayerInitPacket implements Packet<WorkerListener> {
      */
     @Override
     public void handle(WorkerListener pHandler) {
-        System.out.println("Recibido en el handle del packet");
+        System.out.println("Handle Login in worker");
         pHandler.handlePlayerLogin(this);
     }
 }

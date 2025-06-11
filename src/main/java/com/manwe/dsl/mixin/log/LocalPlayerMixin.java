@@ -19,7 +19,7 @@ public abstract class LocalPlayerMixin {
 
     @Inject(method = "tick",at = @At("HEAD"))
     private void tick(CallbackInfo ci){
-        System.out.println("TICK");
+        //System.out.println("TICK");
         /*
         if (((Entity)(Object)this).level().hasChunkAt(((Entity)(Object)this).getBlockX(), ((Entity)(Object)this).getBlockZ())) {
 

@@ -74,7 +74,7 @@ public class RegionRouter {
      */
     public WorkerTunnel transferClientToWorker(UUID playerId, int workerId){
         WorkerTunnel newTunnel = workerTunnels.get(workerId);
-        playerWorkerTunnels.put(playerId,newTunnel);//Set this player to this tunnel. All route() operations now point to this tunnel
+        playerWorkerTunnels.put(playerId,newTunnel); //Set this player to this tunnel. All route() operations now point to this tunnel
         return newTunnel;
     }
 
@@ -224,6 +224,7 @@ public class RegionRouter {
      */
     public static int defaultSpawnWorkerId(MinecraftServer server, int nWorkers, int regionSize){
         BlockPos pos = server.overworld().getSharedSpawnPos();
+        System.out.println("Spawn Pos: "+pos.toString());
         return computeWorkerId(pos.getX(),pos.getZ(),nWorkers,regionSize);
     }
 }

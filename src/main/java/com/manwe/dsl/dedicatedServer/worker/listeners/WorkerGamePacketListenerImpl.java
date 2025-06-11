@@ -1,8 +1,19 @@
 package com.manwe.dsl.dedicatedServer.worker.listeners;
 
+import com.manwe.dsl.DistributedServerLevels;
+import com.manwe.dsl.config.DSLServerConfigs;
+import com.manwe.dsl.connectionRouting.RegionRouter;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerDisconnectPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerInformationPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerLoginPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerLoginPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.mixin.accessors.ServerGamePacketListenerImplAccessor;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import net.minecraft.network.Connection;
-import net.minecraft.network.protocol.PacketUtils;
+import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
 import net.minecraft.network.protocol.game.*;
@@ -10,55 +21,134 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.entity.HasCustomInventoryScreen;
-import net.minecraft.world.entity.PlayerRideableJumping;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.ChunkPos;
+
+import java.util.BitSet;
+import java.util.HashSet;
+import java.util.Set;
+
 
 public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
 
-    public WorkerGamePacketListenerImpl(MinecraftServer pServer, Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie) {
+    private final WorkerListenerImpl workerListener;
+
+    int workerSize = DSLServerConfigs.WORKER_SIZE.get();
+    int regionSize = DSLServerConfigs.REGION_SIZE.get();
+    int workerId = DSLServerConfigs.WORKER_ID.get();
+
+    ChunkPos oldChunkPos;
+
+    BitSet preloadedWorkers;
+
+    //List of the current fakePlayers of this player in other workers
+    //private Set<Integer> preloadedWorkers = new HashSet<>(DSLServerConfigs.WORKER_SIZE.get());
+
+    public WorkerGamePacketListenerImpl(MinecraftServer pServer, Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie, WorkerListenerImpl workerListener, BitSet preloadedWorkers) {
         super(pServer, pConnection, pPlayer, pCookie);
+        this.workerListener = workerListener;
+        this.preloadedWorkers = preloadedWorkers;
+        this.preloadedWorkers.clear(workerId); //Remove this worker from preloaded
+
+        //testViewOutsideWorkerBounds(); //Fake Player creation in initialization? no funciona muy bien por la posición
     }
 
     @Override
     public void handlePlayerCommand(ServerboundPlayerCommandPacket pPacket) {
-        System.out.println("ServerboundPlayerCommandPacket: " + pPacket.getAction().name());
-        if(pPacket.getAction() == ServerboundPlayerCommandPacket.Action.START_FALL_FLYING){
-            System.out.println("tryToStartFallFlying: "+ (!player.onGround() && !player.isFallFlying() && !player.isInWater() && !player.hasEffect(MobEffects.LEVITATION)) );
-            System.out.println("onGround: "+ player.onGround());
-            System.out.println("isFallFlying: "+ player.isFallFlying());
-            System.out.println("isInWater: "+ player.isInWater());
-            System.out.println("has Levitation: "+ player.hasEffect(MobEffects.LEVITATION));
-
-            ItemStack itemstack = player.getItemBySlot(EquipmentSlot.CHEST);
-            System.out.println("equipped item: "+itemstack.getItem());
-            if (itemstack.canElytraFly(player)) {
-                System.out.println("START FLYING");
-            }
-        }
         super.handlePlayerCommand(pPacket);
     }
 
     @Override
     public void handleClientInformation(ServerboundClientInformationPacket pPacket) {
-        System.out.println("recibe handleClientInformation");
         super.handleClientInformation(pPacket);
+        workerListener.send(new ProxyBoundFakePlayerInformationPacket(player.getUUID(), preloadedWorkers, player.requestedViewDistance()));
     }
 
     @Override
     public void handleAcceptTeleportPacket(ServerboundAcceptTeleportationPacket pPacket) {
-        System.out.println("ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
+        //System.out.println("ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
         super.handleAcceptTeleportPacket(pPacket);
-        System.out.println("Post ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
+        //System.out.println("Post ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
+    }
+
+    @Override
+    public void onDisconnect(DisconnectionDetails pDetails) {
+        workerListener.send(new ProxyBoundFakePlayerDisconnectPacket(player.getUUID(),preloadedWorkers)); //Send Disconnect to all fake players, they will execute WorkerFakePlayerListenerImpl.onDisconnect
+        super.onDisconnect(pDetails); //Disconnect this player
     }
 
     @Override
     public void handleMovePlayer(ServerboundMovePlayerPacket pPacket) {
-        //System.out.println("handleMovePlayer: "+pPacket.getX(0)+":"+pPacket.getY(0)+":"+pPacket.getZ(0) + "AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
-        //System.out.println(player.getX() + ":" + player.getY() + ":" + player.getZ() + " tickCount=" + player.tickCount + " isAlive=" + player.isAlive() + " isSleeping=" + player.isSleeping() + " noPhysics=" + player.noPhysics);
+        oldChunkPos = player.chunkPosition();
         super.handleMovePlayer(pPacket);
+        if(!oldChunkPos.equals(player.chunkPosition())){ //Player changed chunk
+            System.out.println("Player changed chunks");
+            testOutsideWorkerBounds();      //Player Transfer
+            testViewOutsideWorkerBounds();  //Fake Player creation
+            sendFakePlayerMovement();       //Fake Player movement synchronization
+        }
+    }
+
+    /**
+     * Handle send transfer request to proxy and removes this connection
+     */
+    private void testOutsideWorkerBounds() {
+        int id = RegionRouter.computeWorkerId(player.getX(),player.getZ(), workerSize, regionSize);
+        if(id != DSLServerConfigs.WORKER_ID.get()){ //Transfer
+            workerListener.setTransfering(player.getUUID());
+            workerListener.send(new ProxyBoundPlayerTransferPacket(player, id, preloadedWorkers));
+            DistributedServerLevels.LOGGER.info("Transfer in progress block all incoming packets from ["+ player.getUUID()+"] to this worker");
+        }
+    }
+
+    /**
+     * Handle fake player login if other worker is in view distance
+     */
+    private void testViewOutsideWorkerBounds() {
+        System.out.println("Test view outside bounds");
+
+        int blockViewDistance = Mth.clamp(player.requestedViewDistance(), 2, server.getPlayerList().getViewDistance()) << 4;
+        int px = Mth.floor(player.getX());
+        int pz = Mth.floor(player.getZ());
+
+        BitSet newPreloaded = new BitSet(); //Set the bits to 1 of the visible workers
+        newPreloaded.set(RegionRouter.computeWorkerId(px + blockViewDistance, pz + blockViewDistance, workerSize, regionSize));
+        newPreloaded.set(RegionRouter.computeWorkerId(px - blockViewDistance, pz + blockViewDistance, workerSize, regionSize));
+        newPreloaded.set(RegionRouter.computeWorkerId(px + blockViewDistance, pz - blockViewDistance, workerSize, regionSize));
+        newPreloaded.set(RegionRouter.computeWorkerId(px - blockViewDistance, pz - blockViewDistance, workerSize, regionSize));
+
+        newPreloaded.clear(workerId);       //Remove this worker
+
+        //XOR
+        BitSet diff = new BitSet();
+        diff.or(newPreloaded);
+        diff.xor(preloadedWorkers);
+        //To Add
+        BitSet add = new BitSet();
+        add.or(diff);
+        add.and(newPreloaded);
+        //To Remove
+        BitSet remove = new BitSet();
+        remove.or(diff);
+        remove.and(preloadedWorkers);
+
+        if(add.cardinality() > 0) {
+            System.out.println("ProxyBoundFakePlayerLoginPacket Pos:"+player.position());
+            workerListener.send(new ProxyBoundFakePlayerLoginPacket(player, add));
+        }
+        if(remove.cardinality() > 0){
+            System.out.println("ProxyBoundFakePlayerDisconnectPacket - "+ remove);
+            workerListener.send(new ProxyBoundFakePlayerDisconnectPacket(player.getUUID(), remove));
+        }
+
+        preloadedWorkers = newPreloaded;    //Update bitset
+    }
+
+    /**
+     * Sends to the proxy the new location of the fake players in other workers
+     */
+    private void sendFakePlayerMovement(){
+        workerListener.send(new ProxyBoundFakePlayerMovePacket(player.getUUID(), player.position(), preloadedWorkers)); //Send set position of fake players
     }
 
     @Override
@@ -68,14 +158,7 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
     }
 
     @Override
-    public void handleChunkBatchReceived(ServerboundChunkBatchReceivedPacket pPacket) {
-        //System.out.println("handleChunkBatchReceived");
-        super.handleChunkBatchReceived(pPacket);
-    }
-
-    @Override
     protected void keepConnectionAlive() {
         //Desactiva el keep alive del worker, esto lo maneja solo el proxy
-        //super.keepConnectionAlive();
     }
 }

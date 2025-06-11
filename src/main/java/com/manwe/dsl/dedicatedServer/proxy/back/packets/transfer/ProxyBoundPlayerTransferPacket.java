@@ -1,20 +1,18 @@
-package com.manwe.dsl.dedicatedServer.proxy.back.packets;
+package com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer;
 
 import com.manwe.dsl.connectionRouting.TransientEntityInformation;
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
-import com.manwe.dsl.dedicatedServer.worker.LocalPlayerList;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketType;
-import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.util.Objects;
+import java.util.BitSet;
 import java.util.UUID;
 
 public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
@@ -25,11 +23,12 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
     private final ClientInformation clientInformation;
     private final TransientEntityInformation entityInformation;
     private final int entityId;
+    private final BitSet workers;
 
     public static final StreamCodec<FriendlyByteBuf, ProxyBoundPlayerTransferPacket> STREAM_CODEC =
             Packet.codec(ProxyBoundPlayerTransferPacket::write, ProxyBoundPlayerTransferPacket::new);
 
-    public ProxyBoundPlayerTransferPacket(ServerPlayer player, int workerId){
+    public ProxyBoundPlayerTransferPacket(ServerPlayer player, int workerId, BitSet workers){
         this.workerId = workerId;
         this.gameProfile = player.getGameProfile();
         this.clientInformation = player.clientInformation();
@@ -38,6 +37,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         player.saveWithoutId(this.playerNbt);
         this.entityInformation = new TransientEntityInformation(player.getYRot(),player.getXRot());
         this.entityId = player.getId();
+        this.workers = workers;
     }
 
     public ProxyBoundPlayerTransferPacket(FriendlyByteBuf buf) {
@@ -49,6 +49,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         this.clientInformation = new ClientInformation(buf);
         this.entityInformation = new TransientEntityInformation(buf);
         this.entityId = buf.readInt();
+        this.workers = buf.readBitSet();
     }
     private void write(FriendlyByteBuf buf) {
         buf.writeInt(this.workerId);
@@ -58,6 +59,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         this.clientInformation.write(buf);
         this.entityInformation.write(buf);
         buf.writeInt(this.entityId);
+        buf.writeBitSet(this.workers);
     }
 
     public ClientInformation getClientInformation() {
@@ -82,6 +84,10 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
 
     public int getEntityId() {
         return this.entityId;
+    }
+
+    public BitSet getWorkers() {
+        return workers;
     }
 
     /**

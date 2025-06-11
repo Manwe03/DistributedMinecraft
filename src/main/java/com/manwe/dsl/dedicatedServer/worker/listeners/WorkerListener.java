@@ -1,6 +1,14 @@
 package com.manwe.dsl.dedicatedServer.worker.listeners;
 
 import com.manwe.dsl.dedicatedServer.worker.packets.*;
+import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerInformationPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerLoginPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerEndTransferPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerTransferPacket;
 import net.minecraft.network.Connection;
 import net.minecraft.network.ConnectionProtocol;
 import net.minecraft.network.protocol.game.ServerPacketListener;
@@ -16,13 +24,21 @@ public interface WorkerListener extends ServerPacketListener {
 
     void handleProxyWorkerPacket(WorkerBoundContainerPacket packet);
 
-    void handlePlayerLogin(WorkerBoundPlayerInitPacket packet);
+    void handlePlayerLogin(WorkerBoundPlayerLoginPacket packet);
 
-    void handlePlayerLoginACK(WorkerBoundPlayerInitACKPacket packet);
+    void handlePlayerLoginACK(WorkerBoundPlayerLoginACKPacket packet);
 
     void handlePlayerTransfer(WorkerBoundPlayerTransferPacket packet);
 
+    void handleFakePlayerLogin(WorkerBoundFakePlayerLoginPacket packet);
+
     void handlePlayerDisconnect(WorkerBoundPlayerDisconnectPacket packet);
+
+    void handlePlayerEndTransfer(WorkerBoundPlayerEndTransferPacket packet);
+
+    void handleFakePlayerMove(WorkerBoundFakePlayerMovePacket packet);
+
+    void handleFakePlayerInformation(WorkerBoundFakePlayerInformationPacket packet);
 
     Connection getPlayerConnection(UUID playerId);
 }

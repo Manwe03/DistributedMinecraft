@@ -4,11 +4,10 @@ import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.connectionRouting.RegionRouter;
 import com.manwe.dsl.dedicatedServer.proxy.front.listeners.ProxyServerGameListener;
-import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundPlayerInitPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
 import com.manwe.dsl.mixin.accessors.PlayerListAccessor;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Dynamic;
-import net.minecraft.ChatFormatting;
 import net.minecraft.core.LayeredRegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -16,10 +15,7 @@ import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.protocol.game.*;
-import net.minecraft.network.protocol.status.ServerStatus;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.RegistryLayer;
 import net.minecraft.server.dedicated.DedicatedPlayerList;
@@ -28,7 +24,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.players.GameProfileCache;
-import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.storage.LevelData;
@@ -36,7 +31,6 @@ import net.minecraft.world.level.storage.PlayerDataStorage;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Modified PlaceNewPlayer, set up RemoteServerGamePacketListenerImpl instead of ServerGamePacketListenerImpl
@@ -114,15 +108,16 @@ public class RemotePlayerList extends DedicatedPlayerList {
         //Register this Client<->Proxy connection to be used by outgoing client packets from workers to clients. The proxy redirects these packets to the client.
         this.router.addOutgoingConnection(pPlayer.getUUID(),pConnection);
         //Create init message
-        WorkerBoundPlayerInitPacket initPacket = new WorkerBoundPlayerInitPacket(pPlayer.getGameProfile(), pPlayer.clientInformation());
+        WorkerBoundPlayerLoginPacket initPacket = new WorkerBoundPlayerLoginPacket(pPlayer.getGameProfile(), pPlayer.clientInformation());
 
         //Set worker for player if saved in disk
         if(workerId != 0) this.router.transferClientToWorker(pPlayer.getUUID(),workerId);
 
         //If not Saved in memory
         if(!this.router.hasTunnel(pPlayer.getUUID())){ //Default spawn position
-            this.router.transferClientToWorker(pPlayer.getUUID(), RegionRouter.defaultSpawnWorkerId(getServer(), DSLServerConfigs.WORKER_SIZE.get(),DSLServerConfigs.REGION_SIZE.get()));
-            System.out.println("This player has no tunnel set defaulting to server spawn");
+            workerId = RegionRouter.defaultSpawnWorkerId(getServer(), DSLServerConfigs.WORKER_SIZE.get(),DSLServerConfigs.REGION_SIZE.get());
+            this.router.transferClientToWorker(pPlayer.getUUID(), workerId);
+            System.out.println("This player has no tunnel set defaulting to server spawn - Worker: "+workerId);
         }
         System.out.println("Has ["+pPlayer.getUUID()+"] tunnel "+this.router.hasTunnel(pPlayer.getUUID()));
 
