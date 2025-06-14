@@ -1,8 +1,10 @@
 package com.manwe.dsl.mixin.accessors;
 
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.PlayerAdvancements;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
+import net.minecraft.stats.ServerStatsCounter;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
 
@@ -21,4 +23,10 @@ public interface PlayerListAccessor {
 
     @Accessor("playersByUUID")
     Map<UUID, ServerPlayer> getPlayersByUUID();
+
+    @Accessor("stats")
+    Map<UUID, ServerStatsCounter> getStats();
+
+    @Accessor("advancements")
+    Map<UUID, PlayerAdvancements> getAdvancements();
 }

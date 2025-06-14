@@ -20,6 +20,7 @@
     "chunk.ChunkTrackingViewMixin",
     "chunk.DistanceManagerMixin",
     "chunk.PlayerChunkSenderMixin",
+    "chunk.ServerChunkCacheMixin",
     "chunk.TickingTrackerMixin",
     "invokers.PlayerChunkSenderInvoker",
     "invokers.ServerGamePacketListenerImplInvoker",

@@ -6,6 +6,7 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundPlayerInitACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
@@ -14,6 +15,7 @@ import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerInformationPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundRequestLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
@@ -28,6 +30,8 @@ public class InternalGameProtocols {
     public static final ProtocolInfo.Unbound<WorkerListener, FriendlyByteBuf> SERVERBOUND_TEMPLATE = ProtocolInfoBuilder.serverboundProtocol(
             ConnectionProtocol.PLAY, consumer -> consumer
                     .addPacket(InternalPacketTypes.PROXY_WORKER_PACKET_CONTAINER, WorkerBoundContainerPacket.STREAM_CODEC)
+
+                    .addPacket(InternalPacketTypes.PROXY_WORKER_LEVEL_INFORMATION, WorkerBoundRequestLevelInformationPacket.STREAM_CODEC)
 
                     .addPacket(InternalPacketTypes.PROXY_WORKER_PLAYER_LOGIN, WorkerBoundPlayerLoginPacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.PROXY_WORKER_PLAYER_LOGIN_ACK, WorkerBoundPlayerLoginACKPacket.STREAM_CODEC)
@@ -45,6 +49,7 @@ public class InternalGameProtocols {
             ConnectionProtocol.PLAY, consumer -> consumer
                     .addPacket(InternalPacketTypes.WORKER_PROXY_PACKET_CONTAINER, ProxyBoundContainerPacket.STREAM_CODEC)
 
+                    .addPacket(InternalPacketTypes.WORKER_PROXY_LEVEL_INFORMATION, ProxyBoundLevelInformationPacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.WORKER_PROXY_SAVE_PLAYER_STATE, ProxyBoundSavePlayerStatePacket.STREAM_CODEC)
 
                     .addPacket(InternalPacketTypes.WORKER_PROXY_PLAYER_LOGIN_ACK, ProxyBoundPlayerInitACKPacket.STREAM_CODEC)

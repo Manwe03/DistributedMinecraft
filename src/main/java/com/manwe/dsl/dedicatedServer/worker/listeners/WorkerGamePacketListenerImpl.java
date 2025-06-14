@@ -8,12 +8,12 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
-import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerLoginPacket;
-import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
+import com.manwe.dsl.dedicatedServer.worker.LocalPlayerList;
 import com.manwe.dsl.mixin.accessors.ServerGamePacketListenerImplAccessor;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import net.minecraft.ChatFormatting;
 import net.minecraft.network.Connection;
 import net.minecraft.network.DisconnectionDetails;
+import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
 import net.minecraft.network.protocol.game.*;
@@ -25,9 +25,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.level.ChunkPos;
 
 import java.util.BitSet;
-import java.util.HashSet;
-import java.util.Set;
-
 
 public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
 
@@ -65,40 +62,75 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
     }
 
     @Override
-    public void handleAcceptTeleportPacket(ServerboundAcceptTeleportationPacket pPacket) {
-        //System.out.println("ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
-        super.handleAcceptTeleportPacket(pPacket);
-        //System.out.println("Post ACK -> Packet Id:" + pPacket.getId() + " AwaitingTeleport: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingTeleport() + " AwaitingPos: " + ((ServerGamePacketListenerImplAccessor)this).getAwaitingPositionFromClient());
-    }
-
-    @Override
     public void onDisconnect(DisconnectionDetails pDetails) {
+        System.out.println("OnDisconnect called in WorkerGamePacketListenerImpl sending request disconnect to all fake players");
         workerListener.send(new ProxyBoundFakePlayerDisconnectPacket(player.getUUID(),preloadedWorkers)); //Send Disconnect to all fake players, they will execute WorkerFakePlayerListenerImpl.onDisconnect
         super.onDisconnect(pDetails); //Disconnect this player
     }
 
+    public void silentDisconnect(){
+        ((ServerGamePacketListenerImplAccessor)this).getChatMessageChain().close();
+        this.server.invalidateStatus();
+        this.server.getPlayerList().broadcastSystemMessage(Component.translatable("multiplayer.player.left", this.player.getDisplayName()).withStyle(ChatFormatting.AQUA), false);
+        this.player.disconnect();
+        if(!(this.server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("playerList not instance of LocalPlayerList");
+        localPlayerList.silentRemovePlayer(this.player);
+        //this.server.getPlayerList().remove(this.player);
+        this.player.getTextFilter().leave();
+    }
+
     @Override
     public void handleMovePlayer(ServerboundMovePlayerPacket pPacket) {
-        oldChunkPos = player.chunkPosition();
-        super.handleMovePlayer(pPacket);
-        if(!oldChunkPos.equals(player.chunkPosition())){ //Player changed chunk
+        ChunkPos currentChunk = player.chunkPosition();
+
+        double nextX = clampHorizontal(pPacket.getX(this.player.getX()));
+        double nextY = clampVertical(pPacket.getY(this.player.getY()));
+        double nextZ = clampHorizontal(pPacket.getZ(this.player.getZ()));
+        float fY = Mth.wrapDegrees(pPacket.getYRot(this.player.getYRot()));
+        float fX = Mth.wrapDegrees(pPacket.getXRot(this.player.getXRot()));
+
+        //ChunkPos nextChunk = new ChunkPos(Mth.floor(nextX) >> 4, Mth.floor(nextZ) >> 4);
+        boolean chunkChanged = currentChunk.x != Mth.floor(nextX) >> 4 || currentChunk.z != Mth.floor(nextZ) >> 4;
+        if(chunkChanged){
             System.out.println("Player changed chunks");
-            testOutsideWorkerBounds();      //Player Transfer
-            testViewOutsideWorkerBounds();  //Fake Player creation
-            sendFakePlayerMovement();       //Fake Player movement synchronization
+            if(testOutsideWorkerBounds(nextX, nextY, nextZ, fY, fX)){
+                testViewOutsideWorkerBounds();  //Fake Player creation
+                return;
+            }else {
+                testViewOutsideWorkerBounds();  //Fake Player creation
+                sendFakePlayerMovement();       //Fake Player movement synchronization
+            }
         }
+        super.handleMovePlayer(pPacket);
+    }
+
+    public void updateFakePlayers(){
+        System.out.println("updateFakePlayers");
+        testViewOutsideWorkerBounds();
+        sendFakePlayerMovement();
     }
 
     /**
      * Handle send transfer request to proxy and removes this connection
      */
-    private void testOutsideWorkerBounds() {
-        int id = RegionRouter.computeWorkerId(player.getX(),player.getZ(), workerSize, regionSize);
+    private boolean testOutsideWorkerBounds(double nextX, double nextY, double nextZ, float fY, float fX) {
+        int id = RegionRouter.computeWorkerId(nextX,nextZ);
         if(id != DSLServerConfigs.WORKER_ID.get()){ //Transfer
+            player.absMoveTo(nextX,nextY,nextZ,fY,fX);     //Possible malicious client packets, no checks
             workerListener.setTransfering(player.getUUID());
             workerListener.send(new ProxyBoundPlayerTransferPacket(player, id, preloadedWorkers));
             DistributedServerLevels.LOGGER.info("Transfer in progress block all incoming packets from ["+ player.getUUID()+"] to this worker");
+            return true;
         }
+        return false;
+    }
+
+    private static double clampHorizontal(double pValue) {
+        return Mth.clamp(pValue, -3.0E7, 3.0E7);
+    }
+
+    private static double clampVertical(double pValue) {
+        return Mth.clamp(pValue, -2.0E7, 2.0E7);
     }
 
     /**
@@ -112,10 +144,10 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
         int pz = Mth.floor(player.getZ());
 
         BitSet newPreloaded = new BitSet(); //Set the bits to 1 of the visible workers
-        newPreloaded.set(RegionRouter.computeWorkerId(px + blockViewDistance, pz + blockViewDistance, workerSize, regionSize));
-        newPreloaded.set(RegionRouter.computeWorkerId(px - blockViewDistance, pz + blockViewDistance, workerSize, regionSize));
-        newPreloaded.set(RegionRouter.computeWorkerId(px + blockViewDistance, pz - blockViewDistance, workerSize, regionSize));
-        newPreloaded.set(RegionRouter.computeWorkerId(px - blockViewDistance, pz - blockViewDistance, workerSize, regionSize));
+        newPreloaded.set(RegionRouter.computeWorkerId(px + blockViewDistance, pz + blockViewDistance));
+        newPreloaded.set(RegionRouter.computeWorkerId(px - blockViewDistance, pz + blockViewDistance));
+        newPreloaded.set(RegionRouter.computeWorkerId(px + blockViewDistance, pz - blockViewDistance));
+        newPreloaded.set(RegionRouter.computeWorkerId(px - blockViewDistance, pz - blockViewDistance));
 
         newPreloaded.clear(workerId);       //Remove this worker
 

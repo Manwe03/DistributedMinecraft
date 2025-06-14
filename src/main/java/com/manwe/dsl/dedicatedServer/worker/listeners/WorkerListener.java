@@ -4,6 +4,7 @@ import com.manwe.dsl.dedicatedServer.worker.packets.*;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerInformationPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundRequestLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
@@ -39,6 +40,8 @@ public interface WorkerListener extends ServerPacketListener {
     void handleFakePlayerMove(WorkerBoundFakePlayerMovePacket packet);
 
     void handleFakePlayerInformation(WorkerBoundFakePlayerInformationPacket packet);
+
+    void handleLevelInformation(WorkerBoundRequestLevelInformationPacket packet);
 
     Connection getPlayerConnection(UUID playerId);
 }

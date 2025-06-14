@@ -7,6 +7,7 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundPlayerInitACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
@@ -142,7 +143,6 @@ public class ProxyListenerImpl implements ProxyListener {
             Files.createDirectories(this.playerDir);
             Path file = playerDir.resolve(playerId + ".dat");
 
-            // ¡Formato vanilla!  (gzip + NBT sin envoltorio)
             NbtIo.writeCompressed(tag, file);
 
         } catch (IOException ex) {
@@ -187,6 +187,11 @@ public class ProxyListenerImpl implements ProxyListener {
         packet.getWorkers().stream().forEach(id -> {
             router.route(id).send(new WorkerBoundFakePlayerInformationPacket(packet));
         });
+    }
+
+    @Override
+    public void handleLevelInformation(ProxyBoundLevelInformationPacket packet) {
+        router.setDefaultSpawn(packet.getDefaultSpawnPos());
     }
 
 }

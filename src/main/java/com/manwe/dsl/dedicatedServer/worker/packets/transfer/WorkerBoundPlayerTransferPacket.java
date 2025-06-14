@@ -13,9 +13,11 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketType;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ChunkTrackingView;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.network.connection.ConnectionType;
 
 import java.util.BitSet;
@@ -32,6 +34,9 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
     private final int entityId;
     private final BitSet workers;
 
+    //Tracking view
+    private final int viewDistance;
+
     public static final StreamCodec<FriendlyByteBuf, WorkerBoundPlayerTransferPacket> STREAM_CODEC =
             Packet.codec(WorkerBoundPlayerTransferPacket::write, WorkerBoundPlayerTransferPacket::new);
 
@@ -43,6 +48,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         this.entityInformation = packet.getEntityInformation();
         this.entityId = packet.getEntityId();
         this.workers = packet.getWorkers();
+        this.viewDistance = packet.getViewDistance();
     }
 
     public WorkerBoundPlayerTransferPacket(FriendlyByteBuf buf) {
@@ -59,6 +65,8 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         this.entityId = buf.readInt();
 
         this.workers = buf.readBitSet();
+
+        this.viewDistance = buf.readInt();
     }
     private void write(FriendlyByteBuf buf) {
         buf.writeInt(this.workerId);
@@ -73,6 +81,8 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         buf.writeInt(this.entityId);
 
         buf.writeBitSet(this.workers);
+
+        buf.writeInt(this.viewDistance);
     }
 
     public ClientInformation getClientInformation() {
@@ -106,6 +116,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
     public ServerPlayer rebuildServerPlayer(MinecraftServer server) {
         ServerPlayer clone = new ServerPlayer(server, server.overworld(), this.gameProfile, this.clientInformation);
         clone.setId(this.entityId); //Clone the id assigned by its source worker, entity id do not collide between workers each worker has its own id range
+        clone.setChunkTrackingView(new ChunkTrackingView.Positioned(clone.chunkPosition(),viewDistance)); //Set this view distance to avoid chunk resends
         return clone;
     }
 

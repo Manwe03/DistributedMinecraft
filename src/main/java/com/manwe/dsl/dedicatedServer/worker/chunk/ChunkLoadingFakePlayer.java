@@ -74,7 +74,6 @@ public class ChunkLoadingFakePlayer extends ServerPlayer {
     @Override
     public void die(DamageSource source) {}
 
-    /*
     @Override
     public void tick() {
         //super.tick();
@@ -86,10 +85,9 @@ public class ChunkLoadingFakePlayer extends ServerPlayer {
 
     @Override
     public void doTick() {
-        super.doTick();
-        //this.tick();
+        //super.doTick();
+        this.tick();
     }
-    */
 
     @Override
     public void updateOptions(ClientInformation p_301998_) {}

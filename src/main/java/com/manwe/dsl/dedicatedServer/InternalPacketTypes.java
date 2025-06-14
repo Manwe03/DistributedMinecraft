@@ -6,6 +6,7 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundPlayerInitACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
@@ -14,6 +15,7 @@ import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerInformationPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundRequestLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
@@ -26,6 +28,8 @@ import net.minecraft.resources.ResourceLocation;
 
 public class InternalPacketTypes {
     public static final PacketType<WorkerBoundContainerPacket> PROXY_WORKER_PACKET_CONTAINER = createServerbound("worker_packet_container");
+
+    public static final PacketType<WorkerBoundRequestLevelInformationPacket> PROXY_WORKER_LEVEL_INFORMATION = createServerbound("worker_level_information");
 
     public static final PacketType<WorkerBoundPlayerLoginPacket> PROXY_WORKER_PLAYER_LOGIN = createServerbound("worker_player_login");
     public static final PacketType<WorkerBoundPlayerLoginACKPacket> PROXY_WORKER_PLAYER_LOGIN_ACK = createServerbound("worker_player_login_ack");
@@ -43,6 +47,7 @@ public class InternalPacketTypes {
 
     public static final PacketType<ProxyBoundContainerPacket> WORKER_PROXY_PACKET_CONTAINER = createClientbound("proxy_packet_container");
 
+    public static final PacketType<ProxyBoundLevelInformationPacket> WORKER_PROXY_LEVEL_INFORMATION = createClientbound("proxy_level_information");
     public static final PacketType<ProxyBoundSavePlayerStatePacket> WORKER_PROXY_SAVE_PLAYER_STATE = createClientbound("proxy_save_player_state");
 
     public static final PacketType<ProxyBoundPlayerInitACKPacket> WORKER_PROXY_PLAYER_LOGIN_ACK = createClientbound("proxy_player_login_ack");

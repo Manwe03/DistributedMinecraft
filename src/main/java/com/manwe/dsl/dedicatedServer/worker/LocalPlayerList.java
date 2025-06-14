@@ -22,6 +22,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.players.GameProfileCache;
+import net.minecraft.stats.Stats;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.GameRules;
@@ -163,21 +164,21 @@ public class LocalPlayerList extends DedicatedPlayerList {
 
     public void transferExistingPlayer(ServerPlayer pPlayer, CompoundTag nbt){
 
-        System.out.println("TRANSFER PLAYER");
-
-        /* ---------- 1. Determinar el mundo destino ---------- */
         ResourceKey<Level> key = DimensionType
                 .parseLegacy(new Dynamic<>(NbtOps.INSTANCE, nbt.get("Dimension")))
                 .resultOrPartial(DistributedServerLevels.LOGGER::error)
                 .orElse(Level.OVERWORLD);
 
-        ServerLevel level = Objects.requireNonNullElseGet(this.getServer().getLevel(key), this.getServer()::overworld); // fallback → overworld
+        ServerLevel level = Objects.requireNonNullElseGet(this.getServer().getLevel(key), this.getServer()::overworld); //Fallback → Overlord
 
         pPlayer.setServerLevel(level); // vincula la entidad al Level correcto
         pPlayer.loadGameTypes(nbt); //Set gameMode
 
         ((PlayerListAccessor) this).getPlayers().add(pPlayer);
         ((PlayerListAccessor) this).getPlayersByUUID().put(pPlayer.getUUID(), pPlayer);
+
+        //TODO ver si se puede quitar el remove player para no tener que mandar esto
+        this.broadcastAll(ClientboundPlayerInfoUpdatePacket.createPlayerInitializing(List.of(pPlayer)));  //Broadcast info
 
         level.addNewPlayer(pPlayer);
 
@@ -216,5 +217,46 @@ public class LocalPlayerList extends DedicatedPlayerList {
         ((PlayerListAccessor) this).getPlayers().add(fakePlayer);
         ((PlayerListAccessor) this).getPlayersByUUID().put(fakePlayer.getUUID(), fakePlayer);
         level.addNewPlayer(fakePlayer);
+    }
+
+    public void silentRemovePlayer(ServerPlayer pPlayer) {
+        ServerLevel serverlevel = pPlayer.serverLevel();
+        pPlayer.awardStat(Stats.LEAVE_GAME);
+        this.save(pPlayer);
+        if (pPlayer.isPassenger()) {
+            Entity entity = pPlayer.getRootVehicle();
+            if (entity.hasExactlyOnePlayerPassenger()) {
+                DistributedServerLevels.LOGGER.debug("Removing player mount");
+                pPlayer.stopRiding();
+                entity.getPassengersAndSelf().forEach(p_215620_ -> p_215620_.setRemoved(Entity.RemovalReason.UNLOADED_WITH_PLAYER));
+            }
+        }
+
+        pPlayer.unRide();
+        serverlevel.removePlayerImmediately(pPlayer, Entity.RemovalReason.UNLOADED_WITH_PLAYER);
+        pPlayer.getAdvancements().stopListening(); //TODO ??
+        ((PlayerListAccessor)this).getPlayers().remove(pPlayer);
+        UUID uuid = pPlayer.getUUID();
+        ServerPlayer serverplayer = ((PlayerListAccessor)this).getPlayersByUUID().get(uuid);
+        if (serverplayer == pPlayer) {
+            ((PlayerListAccessor)this).getPlayersByUUID().remove(uuid);
+            ((PlayerListAccessor)this).getStats().remove(uuid);
+            ((PlayerListAccessor)this).getAdvancements().remove(uuid);
+        }
+    }
+
+    public void silentRemoveFakePlayer(ServerPlayer pPlayer) {
+        ServerLevel serverlevel = pPlayer.serverLevel();
+        pPlayer.awardStat(Stats.LEAVE_GAME);
+        serverlevel.removePlayerImmediately(pPlayer, Entity.RemovalReason.UNLOADED_WITH_PLAYER);
+        pPlayer.getAdvancements().stopListening(); //TODO ??
+        ((PlayerListAccessor)this).getPlayers().remove(pPlayer);
+        UUID uuid = pPlayer.getUUID();
+        ServerPlayer serverplayer = ((PlayerListAccessor)this).getPlayersByUUID().get(uuid);
+        if (serverplayer == pPlayer) {
+            ((PlayerListAccessor)this).getPlayersByUUID().remove(uuid);
+            ((PlayerListAccessor)this).getStats().remove(uuid);
+            ((PlayerListAccessor)this).getAdvancements().remove(uuid);
+        }
     }
 }

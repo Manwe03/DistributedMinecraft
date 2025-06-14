@@ -16,4 +16,10 @@ public class PlayerListMixin {
     public void placeNewPlayer(Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie, CallbackInfo ci) {
         System.out.println("placeNewPlayer VANILLA ESTO NO DEBERA APARECER EN NINGÚN CASO");
     }
+
+    @Inject(method = "remove", at = @At("HEAD"))
+    public void removePlayer(ServerPlayer pPlayer, CallbackInfo ci){
+        System.out.println("PlayerList REMOVE");
+        //Thread.dumpStack();
+    }
 }

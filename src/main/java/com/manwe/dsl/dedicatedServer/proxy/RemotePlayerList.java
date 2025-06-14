@@ -62,9 +62,6 @@ public class RemotePlayerList extends DedicatedPlayerList {
             s = gameprofile.getName();
         }
 
-        //System.out.println("placeNewPlayer Gameprofile: "+ gameprofile);
-        //System.out.println("placeNewPlayer player.Gameprofile: "+ pPlayer.getGameProfile());
-
         //LOAD CUSTOM SAVE STATE IN PROXY
         ResourceKey<Level> dim = null;
         int workerId = 0;
@@ -96,7 +93,8 @@ public class RemotePlayerList extends DedicatedPlayerList {
         //CUSTOM STATE LOADED
 
         ServerLevel serverlevel1 = dim != null ? proxyDedicatedServer.getLevel(dim) : proxyDedicatedServer.overworld();
-        LevelData leveldata = serverlevel1.getLevelData();
+        if(serverlevel1 == null) throw new RuntimeException("RemotePlayerList tried to get a null ServerLevel");
+        //LevelData leveldata = serverlevel1.getLevelData();
         //pPlayer.loadGameTypes(optional1.orElse(null));
 
         pPlayer.setServerLevel(serverlevel1);
@@ -110,15 +108,12 @@ public class RemotePlayerList extends DedicatedPlayerList {
         //Create init message
         WorkerBoundPlayerLoginPacket initPacket = new WorkerBoundPlayerLoginPacket(pPlayer.getGameProfile(), pPlayer.clientInformation());
 
-        //Set worker for player if saved in disk
-        if(workerId != 0) this.router.transferClientToWorker(pPlayer.getUUID(),workerId);
-
-        //If not Saved in memory
-        if(!this.router.hasTunnel(pPlayer.getUUID())){ //Default spawn position
-            workerId = RegionRouter.defaultSpawnWorkerId(getServer(), DSLServerConfigs.WORKER_SIZE.get(),DSLServerConfigs.REGION_SIZE.get());
-            this.router.transferClientToWorker(pPlayer.getUUID(), workerId);
+        if(workerId == 0){ //Default spawn position
+            workerId = router.defaultSpawnWorkerId();
             System.out.println("This player has no tunnel set defaulting to server spawn - Worker: "+workerId);
         }
+        this.router.transferClientToWorker(pPlayer.getUUID(), workerId);
+
         System.out.println("Has ["+pPlayer.getUUID()+"] tunnel "+this.router.hasTunnel(pPlayer.getUUID()));
 
         ProxyServerGameListener servergamepacketlistenerimpl = new ProxyServerGameListener(proxyDedicatedServer, pConnection, pPlayer, pCookie, this.router);

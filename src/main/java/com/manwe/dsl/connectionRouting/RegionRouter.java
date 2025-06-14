@@ -5,14 +5,13 @@ import com.manwe.dsl.arbiter.ConnectionInfo;
 import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.WorkerTunnel;
+import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundRequestLevelInformationPacket;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.chunk.storage.RegionFile;
-import net.minecraft.world.phys.Vec2;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
@@ -36,6 +35,7 @@ public class RegionRouter {
     //UUID, Connection for each client
     private final Map<UUID,Connection> playerOutboundConnections = new HashMap<>();
     private final EventLoopGroup ioGroup;
+    private BlockPos defaultSpawnPos;
 
     //Topology information
     private static final int nWorkers = DSLServerConfigs.WORKER_SIZE.get();
@@ -49,9 +49,10 @@ public class RegionRouter {
 
         //Create a tunnel for each worker
         for(ConnectionInfo connection : workers){
-            WorkerTunnel tunnel = new WorkerTunnel(new InetSocketAddress(connection.ip(),connection.port()),this,server);
+            WorkerTunnel tunnel = new WorkerTunnel(new InetSocketAddress(connection.ip(),connection.port()),this, server);
             workerTunnels.put(connection.id(),tunnel);
         }
+        workerTunnels.get(1).send(new WorkerBoundRequestLevelInformationPacket()); //Request the spawn position
     }
 
     /**
@@ -93,7 +94,7 @@ public class RegionRouter {
      * @return Tunnel to the worker that handles this position
      */
     public WorkerTunnel route(int x, int z){
-        return workerTunnels.get(computeWorkerId(x,z,DSLServerConfigs.WORKER_SIZE.get(),DSLServerConfigs.REGION_SIZE.get()));
+        return workerTunnels.get(computeWorkerId(x,z));
     }
 
     /**
@@ -135,8 +136,8 @@ public class RegionRouter {
         return this.workerTunnels;
     }
 
-    public static int computeWorkerId(double x, double z, int nWorkers, int regionSize){
-        return computeWorkerId((int) Math.floor(x),(int) Math.floor(z),nWorkers,regionSize);
+    public static int computeWorkerId(double x, double z){
+        return computeWorkerId((int) Math.floor(x),(int) Math.floor(z));
     }
 
     /**
@@ -144,7 +145,7 @@ public class RegionRouter {
      * @param z block coordinates
      * @return The ID of the server allocated to this position
      */
-    public static int computeWorkerId(int x, int z, int nWorkers, int regionSize){
+    public static int computeWorkerId(int x, int z){
         if(nWorkers == 1) return 1;
         if (nWorkers == 2) return z >= 0 ? 1 : 2;
         if (nWorkers % 4 != 0) throw new RuntimeException("Invalid number of workers n:"+nWorkers+". Valid numbers are 1, 2 or any other number divisible by 4");
@@ -219,12 +220,15 @@ public class RegionRouter {
         return workerId == base + offset;
     }
 
+    public void setDefaultSpawn(BlockPos pos){
+        this.defaultSpawnPos = pos;
+    }
+
     /**
      * @return The ID of the server that manages the spawn area
      */
-    public static int defaultSpawnWorkerId(MinecraftServer server, int nWorkers, int regionSize){
-        BlockPos pos = server.overworld().getSharedSpawnPos();
-        System.out.println("Spawn Pos: "+pos.toString());
-        return computeWorkerId(pos.getX(),pos.getZ(),nWorkers,regionSize);
+    public int defaultSpawnWorkerId(){
+        if(defaultSpawnPos == null) throw new RuntimeException("No defaultSpawnPos set");
+        return computeWorkerId(defaultSpawnPos.getX(),defaultSpawnPos.getZ());
     }
 }

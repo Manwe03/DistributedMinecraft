@@ -11,6 +11,8 @@ import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketType;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
+import net.minecraft.world.level.ChunkPos;
 
 import java.util.BitSet;
 import java.util.UUID;
@@ -25,6 +27,9 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
     private final int entityId;
     private final BitSet workers;
 
+    //Tracking view
+    private final int viewDistance;
+
     public static final StreamCodec<FriendlyByteBuf, ProxyBoundPlayerTransferPacket> STREAM_CODEC =
             Packet.codec(ProxyBoundPlayerTransferPacket::write, ProxyBoundPlayerTransferPacket::new);
 
@@ -38,6 +43,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         this.entityInformation = new TransientEntityInformation(player.getYRot(),player.getXRot());
         this.entityId = player.getId();
         this.workers = workers;
+        this.viewDistance = Mth.clamp(player.requestedViewDistance(), 2, player.server.getPlayerList().getViewDistance());
     }
 
     public ProxyBoundPlayerTransferPacket(FriendlyByteBuf buf) {
@@ -50,6 +56,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         this.entityInformation = new TransientEntityInformation(buf);
         this.entityId = buf.readInt();
         this.workers = buf.readBitSet();
+        this.viewDistance = buf.readInt();
     }
     private void write(FriendlyByteBuf buf) {
         buf.writeInt(this.workerId);
@@ -60,6 +67,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         this.entityInformation.write(buf);
         buf.writeInt(this.entityId);
         buf.writeBitSet(this.workers);
+        buf.writeInt(this.viewDistance);
     }
 
     public ClientInformation getClientInformation() {
@@ -88,6 +96,10 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
 
     public BitSet getWorkers() {
         return workers;
+    }
+
+    public int getViewDistance() {
+        return viewDistance;
     }
 
     /**
