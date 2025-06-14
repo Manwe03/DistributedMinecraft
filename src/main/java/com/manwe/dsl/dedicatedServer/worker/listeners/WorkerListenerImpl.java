@@ -18,6 +18,7 @@ import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFake
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundRequestLevelInformationPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerEndTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerTransferPacket;
@@ -133,8 +134,6 @@ public class WorkerListenerImpl implements WorkerListener {
     public void handlePlayerTransfer(WorkerBoundPlayerTransferPacket packet) {
         ServerPlayer clonePlayer = packet.rebuildServerPlayer(server);
         CommonListenerCookie cookie = packet.rebuildCookie();
-
-        clonePlayer.load(packet.getPlayerNbt());
 
         server.execute(()-> {
             if (!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("Worker must have a localPlayerList");
@@ -288,6 +287,11 @@ public class WorkerListenerImpl implements WorkerListener {
     @Override
     public void handleLevelInformation(WorkerBoundRequestLevelInformationPacket packet) {
         this.send(new ProxyBoundLevelInformationPacket(server.overworld().getSharedSpawnPos()));
+    }
+
+    @Override
+    public void handleEntityTransfer(WorkerBoundEntityTransferPacket packet) {
+        packet.placeEntity(server); //Add entity to level
     }
 
     private PacketListener getDedicatedPlayerListener(UUID playerId){

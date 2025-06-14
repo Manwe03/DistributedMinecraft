@@ -1,7 +1,7 @@
 package com.manwe.dsl.dedicatedServer.proxy;
 
 import com.manwe.dsl.DistributedServerLevels;
-import com.manwe.dsl.SetConnectionIntf;
+import com.manwe.dsl.mixinExtension.SetConnectionIntf;
 import com.manwe.dsl.arbiter.ArbiterClient;
 import com.manwe.dsl.arbiter.ConnectionInfo;
 import com.manwe.dsl.config.DSLServerConfigs;
@@ -12,7 +12,6 @@ import com.mojang.datafixers.DataFixer;
 import net.minecraft.*;
 import net.minecraft.server.*;
 import net.minecraft.server.dedicated.*;
-import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.progress.ChunkProgressListenerFactory;
 import net.minecraft.server.packs.repository.PackRepository;
 import net.minecraft.server.players.GameProfileCache;
@@ -30,12 +29,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.function.BooleanSupplier;
 
 public class ProxyDedicatedServer extends DedicatedServer {

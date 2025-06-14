@@ -9,11 +9,13 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundPlayerInitACKPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerInformationPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerMovePacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerEndTransferPacket;
@@ -192,6 +194,11 @@ public class ProxyListenerImpl implements ProxyListener {
     @Override
     public void handleLevelInformation(ProxyBoundLevelInformationPacket packet) {
         router.setDefaultSpawn(packet.getDefaultSpawnPos());
+    }
+
+    @Override
+    public void handleEntityTrasnfer(ProxyBoundEntityTransferPacket packet) {
+        router.route(packet.getWorkerId()).send(new WorkerBoundEntityTransferPacket(packet.getEntityNbt(),packet.getEntityLocalId()));
     }
 
 }

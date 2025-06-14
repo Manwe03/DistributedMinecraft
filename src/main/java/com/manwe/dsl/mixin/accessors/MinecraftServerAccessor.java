@@ -1,6 +1,6 @@
 package com.manwe.dsl.mixin.accessors;
 
-import com.manwe.dsl.SetConnectionIntf;
+import com.manwe.dsl.mixinExtension.SetConnectionIntf;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerConnectionListener;
 import org.spongepowered.asm.mixin.Mixin;

@@ -8,6 +8,7 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundPlayerInitACKPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.*;
@@ -18,6 +19,7 @@ import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFake
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundRequestLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerEndTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerTransferPacket;
@@ -37,6 +39,8 @@ public class InternalPacketTypes {
     public static final PacketType<WorkerBoundPlayerTransferPacket> PROXY_WORKER_PLAYER_TRANSFER = createServerbound("worker_player_transfer");
     public static final PacketType<WorkerBoundPlayerEndTransferPacket> PROXY_WORKER_PLAYER_END_TRANSFER = createServerbound("worker_player_end_transfer");
 
+    public static final PacketType<WorkerBoundEntityTransferPacket> PROXY_WORKER_ENTITY_TRANSFER = createServerbound("worker_entity_transfer");
+
     public static final PacketType<WorkerBoundFakePlayerLoginPacket> PROXY_WORKER_FAKE_PLAYER_LOGIN = createServerbound("worker_fake_player_login");
     public static final PacketType<WorkerBoundFakePlayerMovePacket> PROXY_WORKER_FAKE_PLAYER_MOVE = createServerbound("worker_fake_player_move");
     public static final PacketType<WorkerBoundFakePlayerInformationPacket> PROXY_WORKER_FAKE_PLAYER_INFORMATION = createServerbound("worker_fake_player_information");
@@ -53,6 +57,8 @@ public class InternalPacketTypes {
     public static final PacketType<ProxyBoundPlayerInitACKPacket> WORKER_PROXY_PLAYER_LOGIN_ACK = createClientbound("proxy_player_login_ack");
     public static final PacketType<ProxyBoundPlayerTransferPacket> WORKER_PROXY_PLAYER_TRANSFER = createClientbound("proxy_player_transfer");
     public static final PacketType<ProxyBoundPlayerTransferACKPacket> WORKER_PROXY_PLAYER_TRANSFER_ACK = createClientbound("proxy_player_transfer_ack");
+
+    public static final PacketType<ProxyBoundEntityTransferPacket> WORKER_PROXY_ENTITY_TRANSFER = createClientbound("proxy_entity_transfer");
 
     public static final PacketType<ProxyBoundFakePlayerLoginPacket> WORKER_PROXY_FAKE_PLAYER_LOGIN = createClientbound("proxy_fake_player_login");
     public static final PacketType<ProxyBoundFakePlayerMovePacket> WORKER_PROXY_FAKE_PLAYER_MOVE = createClientbound("proxy_fake_player_move");

@@ -7,6 +7,7 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundPlayerInitACKPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
 import net.minecraft.network.ClientboundPacketListener;
@@ -45,4 +46,6 @@ public interface ProxyListener extends ClientboundPacketListener {
     void handleFakePlayerInformation(ProxyBoundFakePlayerInformationPacket packet);
 
     void handleLevelInformation(ProxyBoundLevelInformationPacket packet);
+
+    void handleEntityTrasnfer(ProxyBoundEntityTransferPacket packet);
 }

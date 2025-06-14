@@ -1,4 +1,4 @@
-package com.manwe.dsl;
+package com.manwe.dsl.mixinExtension;
 
 import net.minecraft.server.network.ServerConnectionListener;
 

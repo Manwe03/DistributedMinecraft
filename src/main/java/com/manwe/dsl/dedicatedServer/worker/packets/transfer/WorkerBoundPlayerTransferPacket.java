@@ -17,7 +17,6 @@ import net.minecraft.server.level.ChunkTrackingView;
 import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
-import net.minecraft.world.level.ChunkPos;
 import net.neoforged.neoforge.network.connection.ConnectionType;
 
 import java.util.BitSet;
@@ -26,11 +25,9 @@ import java.util.UUID;
 
 public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
 
-    private final int workerId;
     private final CompoundTag playerNbt;
     private final GameProfile gameProfile;
     private final ClientInformation clientInformation;
-    private final TransientEntityInformation entityInformation;
     private final int entityId;
     private final BitSet workers;
 
@@ -41,18 +38,15 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
             Packet.codec(WorkerBoundPlayerTransferPacket::write, WorkerBoundPlayerTransferPacket::new);
 
     public WorkerBoundPlayerTransferPacket(ProxyBoundPlayerTransferPacket packet){
-        this.workerId = packet.getWorkerId();
         this.gameProfile = packet.getGameProfile();
         this.clientInformation = packet.getClientInformation();
         this.playerNbt = packet.getPlayerNbt();
-        this.entityInformation = packet.getEntityInformation();
         this.entityId = packet.getEntityId();
         this.workers = packet.getWorkers();
         this.viewDistance = packet.getViewDistance();
     }
 
     public WorkerBoundPlayerTransferPacket(FriendlyByteBuf buf) {
-        this.workerId = buf.readInt();
         this.playerNbt = buf.readNbt();
         //GameProfile
         UUID uuid = buf.readUUID();
@@ -60,8 +54,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         this.gameProfile = new GameProfile(uuid,name);
         //ClientInformation
         this.clientInformation = new ClientInformation(buf);
-        //TransientEntityInformation
-        this.entityInformation = new TransientEntityInformation(buf);
+
         this.entityId = buf.readInt();
 
         this.workers = buf.readBitSet();
@@ -69,15 +62,13 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         this.viewDistance = buf.readInt();
     }
     private void write(FriendlyByteBuf buf) {
-        buf.writeInt(this.workerId);
         buf.writeNbt(this.playerNbt);
         //GameProfile
         buf.writeUUID(this.gameProfile.getId());
         buf.writeUtf(this.gameProfile.getName(),255);
         //ClientInformation
         this.clientInformation.write(buf);
-        //TransientEntityInformation
-        this.entityInformation.write(buf);
+
         buf.writeInt(this.entityId);
 
         buf.writeBitSet(this.workers);
@@ -85,24 +76,8 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         buf.writeInt(this.viewDistance);
     }
 
-    public ClientInformation getClientInformation() {
-        return clientInformation;
-    }
-
-    public GameProfile getGameProfile() {
-        return gameProfile;
-    }
-
     public CompoundTag getPlayerNbt() {
         return playerNbt;
-    }
-
-    public int getWorkerId() {
-        return workerId;
-    }
-
-    public TransientEntityInformation getEntityInformation() {
-        return entityInformation;
     }
 
     public BitSet getWorkers() {
@@ -117,6 +92,7 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
         ServerPlayer clone = new ServerPlayer(server, server.overworld(), this.gameProfile, this.clientInformation);
         clone.setId(this.entityId); //Clone the id assigned by its source worker, entity id do not collide between workers each worker has its own id range
         clone.setChunkTrackingView(new ChunkTrackingView.Positioned(clone.chunkPosition(),viewDistance)); //Set this view distance to avoid chunk resends
+        clone.load(this.playerNbt);
         return clone;
     }
 

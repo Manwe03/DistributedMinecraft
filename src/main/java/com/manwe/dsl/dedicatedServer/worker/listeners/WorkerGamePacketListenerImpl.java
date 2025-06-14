@@ -30,11 +30,7 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
 
     private final WorkerListenerImpl workerListener;
 
-    int workerSize = DSLServerConfigs.WORKER_SIZE.get();
-    int regionSize = DSLServerConfigs.REGION_SIZE.get();
     int workerId = DSLServerConfigs.WORKER_ID.get();
-
-    ChunkPos oldChunkPos;
 
     BitSet preloadedWorkers;
 
@@ -81,31 +77,18 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleMovePlayer(ServerboundMovePlayerPacket pPacket) {
-        ChunkPos currentChunk = player.chunkPosition();
-
-        double nextX = clampHorizontal(pPacket.getX(this.player.getX()));
-        double nextY = clampVertical(pPacket.getY(this.player.getY()));
-        double nextZ = clampHorizontal(pPacket.getZ(this.player.getZ()));
-        float fY = Mth.wrapDegrees(pPacket.getYRot(this.player.getYRot()));
-        float fX = Mth.wrapDegrees(pPacket.getXRot(this.player.getXRot()));
-
-        //ChunkPos nextChunk = new ChunkPos(Mth.floor(nextX) >> 4, Mth.floor(nextZ) >> 4);
-        boolean chunkChanged = currentChunk.x != Mth.floor(nextX) >> 4 || currentChunk.z != Mth.floor(nextZ) >> 4;
-        if(chunkChanged){
-            System.out.println("Player changed chunks");
-            if(testOutsideWorkerBounds(nextX, nextY, nextZ, fY, fX)){
-                testViewOutsideWorkerBounds();  //Fake Player creation
-                return;
-            }else {
-                testViewOutsideWorkerBounds();  //Fake Player creation
-                sendFakePlayerMovement();       //Fake Player movement synchronization
-            }
-        }
+        ChunkPos oldChunkPos = player.chunkPosition();
         super.handleMovePlayer(pPacket);
+        ChunkPos newChunkPos = player.chunkPosition();
+        if(!oldChunkPos.equals(newChunkPos)){
+            System.out.println("ChunkChanged");
+            boolean transferred = testOutsideWorkerBounds(player);
+            testViewOutsideWorkerBounds();
+            if(!transferred) sendFakePlayerMovement();
+        }
     }
 
     public void updateFakePlayers(){
-        System.out.println("updateFakePlayers");
         testViewOutsideWorkerBounds();
         sendFakePlayerMovement();
     }
@@ -113,24 +96,16 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
     /**
      * Handle send transfer request to proxy and removes this connection
      */
-    private boolean testOutsideWorkerBounds(double nextX, double nextY, double nextZ, float fY, float fX) {
-        int id = RegionRouter.computeWorkerId(nextX,nextZ);
+    private boolean testOutsideWorkerBounds(ServerPlayer player) {
+        int id = RegionRouter.computeWorkerId(player.getX(),player.getZ());
         if(id != DSLServerConfigs.WORKER_ID.get()){ //Transfer
-            player.absMoveTo(nextX,nextY,nextZ,fY,fX);     //Possible malicious client packets, no checks
+            //player.absMoveTo(nextX,nextY,nextZ,fY,fX);     //Possible malicious client packets, no checks
             workerListener.setTransfering(player.getUUID());
             workerListener.send(new ProxyBoundPlayerTransferPacket(player, id, preloadedWorkers));
             DistributedServerLevels.LOGGER.info("Transfer in progress block all incoming packets from ["+ player.getUUID()+"] to this worker");
             return true;
         }
         return false;
-    }
-
-    private static double clampHorizontal(double pValue) {
-        return Mth.clamp(pValue, -3.0E7, 3.0E7);
-    }
-
-    private static double clampVertical(double pValue) {
-        return Mth.clamp(pValue, -2.0E7, 2.0E7);
     }
 
     /**

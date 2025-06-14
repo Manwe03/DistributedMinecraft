@@ -40,6 +40,7 @@ public class ProxyBoundPlayerTransferPacket implements Packet<ProxyListener> {
         this.playerNbt = new CompoundTag();
         System.out.println("Player being transferred to position X:"+ player.getX()+" Z:"+player.getZ());
         player.saveWithoutId(this.playerNbt);
+        player.addAdditionalSaveData(this.playerNbt);
         this.entityInformation = new TransientEntityInformation(player.getYRot(),player.getXRot());
         this.entityId = player.getId();
         this.workers = workers;

@@ -8,6 +8,7 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundPlayerInitACKPacket;
+import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.*;
@@ -18,6 +19,7 @@ import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFake
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundRequestLevelInformationPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
+import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerEndTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerTransferPacket;
@@ -39,6 +41,8 @@ public class InternalGameProtocols {
                     .addPacket(InternalPacketTypes.PROXY_WORKER_PLAYER_TRANSFER, WorkerBoundPlayerTransferPacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.PROXY_WORKER_PLAYER_END_TRANSFER, WorkerBoundPlayerEndTransferPacket.STREAM_CODEC)
 
+                    .addPacket(InternalPacketTypes.PROXY_WORKER_ENTITY_TRANSFER, WorkerBoundEntityTransferPacket.STREAM_CODEC)
+
                     .addPacket(InternalPacketTypes.PROXY_WORKER_FAKE_PLAYER_LOGIN, WorkerBoundFakePlayerLoginPacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.PROXY_WORKER_FAKE_PLAYER_MOVE, WorkerBoundFakePlayerMovePacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.PROXY_WORKER_FAKE_PLAYER_INFORMATION, WorkerBoundFakePlayerInformationPacket.STREAM_CODEC)
@@ -55,6 +59,8 @@ public class InternalGameProtocols {
                     .addPacket(InternalPacketTypes.WORKER_PROXY_PLAYER_LOGIN_ACK, ProxyBoundPlayerInitACKPacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.WORKER_PROXY_PLAYER_TRANSFER, ProxyBoundPlayerTransferPacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.WORKER_PROXY_PLAYER_TRANSFER_ACK, ProxyBoundPlayerTransferACKPacket.STREAM_CODEC)
+
+                    .addPacket(InternalPacketTypes.WORKER_PROXY_ENTITY_TRANSFER, ProxyBoundEntityTransferPacket.STREAM_CODEC)
 
                     .addPacket(InternalPacketTypes.WORKER_PROXY_FAKE_PLAYER_LOGIN, ProxyBoundFakePlayerLoginPacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.WORKER_PROXY_FAKE_PLAYER_MOVE, ProxyBoundFakePlayerMovePacket.STREAM_CODEC)
