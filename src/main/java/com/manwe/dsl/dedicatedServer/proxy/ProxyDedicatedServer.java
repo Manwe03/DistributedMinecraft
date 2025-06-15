@@ -56,13 +56,18 @@ public class ProxyDedicatedServer extends DedicatedServer {
 
     @Override
     public boolean initServer() throws IOException {
-        try {
-            topology = arbiterClient.fetch();
-            System.out.println("Port from Arbiter: "+topology.port);
-        } catch (Exception ex) {
-            DistributedServerLevels.LOGGER.error("Unexpected Error",ex);
-            throw new RuntimeException("Arbiter unavailable cannot fetch port and role");
+        if(DSLServerConfigs.USE_ARBITER.get()){
+            try {
+                topology = arbiterClient.fetch();
+                System.out.println("Port from Arbiter: "+topology.port);
+            } catch (Exception ex) {
+                DistributedServerLevels.LOGGER.error("Unexpected Error",ex);
+                throw new RuntimeException("Arbiter unavailable cannot fetch port and role");
+            }
+        }else {
+            topology = new ArbiterClient.ArbiterRes(DSLServerConfigs.PORT.get(),DSLServerConfigs.getConnectionAddresses());
         }
+
 
         if(!isProxy){
             EntityAccessor.getEntityCounter().set((workerId - 1) * SHARD_MAX_ENTITIES); //Set exclusive entity ids for each worker

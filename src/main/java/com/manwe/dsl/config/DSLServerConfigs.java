@@ -1,9 +1,13 @@
 package com.manwe.dsl.config;
 
+import com.manwe.dsl.DistributedServerLevels;
+import com.manwe.dsl.arbiter.ConnectionInfo;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
+import java.util.Objects;
 
 public class DSLServerConfigs {
 
@@ -17,7 +21,8 @@ public class DSLServerConfigs {
     public static final ModConfigSpec.ConfigValue<Integer> WORKER_SIZE;
 
     public static final ModConfigSpec.ConfigValue<Boolean> USE_ARBITER;
-    //public static final ModConfigSpec.ConfigValue<List<InetAddress>> CONNECTIONS;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> CONNECTIONS;
+    public static final ModConfigSpec.ConfigValue<Integer> PORT;
 
     static {
         BUILDER.push("Server");
@@ -32,62 +37,22 @@ public class DSLServerConfigs {
 
         BUILDER.push("Auto start").comment("Address assignment for workers");
         USE_ARBITER = BUILDER.comment("Use the arbiter").define("use_arbiter",true);
+        BUILDER.comment("use_arbiter = TRUE ->");
         ARBITER_ADDR = BUILDER.comment("Complete address of the arbiter, This is ignored if use_arbiter = false").define("arbiter_addr","http://localhost:8080");
-            //BUILDER.push("If proxy").comment("Connections to the workers");
-            //CONNECTIONS = BUILDER.comment("").define("arbiter_addr","http://localhost:8080");
-            //BUILDER.pop();
+        BUILDER.comment("use_arbiter = FALSE ->");
+        PORT = BUILDER.define("this_port",25565);
+        CONNECTIONS = BUILDER.comment("If this is proxy and not using arbiter. Define worker address. ip:port:worker_id").defineListAllowEmpty("connections",List.of("127.0.0.1:25565:1","127.0.0.1:25566:2"),object -> {
+            if (object instanceof String s) return true;
+            return false;
+        });
+
         BUILDER.pop();
 
-        /*
-        BUILDER.push("Into Pattern").comment(
-                """
-                This is the ID pattern, form center to edge clockwise
-                +-----------------------------------+
-                |                 |                 |
-                |      8          |         2       |
-                |        +--------+--------+        |
-                |        |        |        |        |
-                |        |      7 | 1      |        |
-                |--------+--------+--------+--------|
-                |        |      5 | 3      |        |
-                |        |        |        |        |
-                |        +--------+--------+        |
-                |      6          |          4      |
-                |                 |                 |
-                +-----------------------------------+
-                
-                +-----------------------------------+
-                |                 |                 |
-                |                 |                 |
-                |     (-x+z)      |      (+x+z)     |
-                |                 |                 |
-                |               4 | 1               |
-                |-----------------+-----------------|
-                |               3 | 2               |
-                |                 |                 |
-                |     (-x-z)      |      (+x-z)     |
-                |                 |                 |
-                |                 |                 |
-                +-----------------------------------+
-                
-                +-----------------------------------+
-                |                 |                 |
-                |                 |                 |
-                |                 |                 |
-                |                 |                 |
-                |                 |                 |
-                |               2 | 1               |
-                |                 |                 |
-                |                 |                 |
-                |                 |                 |
-                |                 |                 |
-                |                 |                 |
-                +-----------------------------------+
-                """
-        );
-        BUILDER.pop();
-        */
     }
 
     public static final ModConfigSpec SPEC = BUILDER.build();
+
+    public static List<ConnectionInfo> getConnectionAddresses() {
+        return CONNECTIONS.get().stream().map(ConnectionInfo::read).toList();
+    }
 }

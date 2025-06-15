@@ -46,6 +46,7 @@ public class WorkerBoundaryListener {
                 }else {
                     System.out.println("Transfer Entity NeoForge");
                     workerListener.send(new ProxyBoundEntityTransferPacket(entity,id));
+                    entity.remove(Entity.RemovalReason.DISCARDED); //DELETE
                 }
             }
         } catch (NoSuchElementException exception){

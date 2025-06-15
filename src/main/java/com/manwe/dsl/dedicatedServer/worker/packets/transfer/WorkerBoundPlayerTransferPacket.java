@@ -90,9 +90,9 @@ public class WorkerBoundPlayerTransferPacket implements Packet<WorkerListener> {
 
     public ServerPlayer rebuildServerPlayer(MinecraftServer server) {
         ServerPlayer clone = new ServerPlayer(server, server.overworld(), this.gameProfile, this.clientInformation);
-        clone.setId(this.entityId); //Clone the id assigned by its source worker, entity id do not collide between workers each worker has its own id range
-        clone.setChunkTrackingView(new ChunkTrackingView.Positioned(clone.chunkPosition(),viewDistance)); //Set this view distance to avoid chunk resends
         clone.load(this.playerNbt);
+        clone.setChunkTrackingView(new ChunkTrackingView.Positioned(clone.chunkPosition(),viewDistance)); //Set this view distance to avoid chunk resends
+        clone.setId(this.entityId); //Clone the id assigned by its source worker, entity id do not collide between workers each worker has its own id range
         return clone;
     }
 
