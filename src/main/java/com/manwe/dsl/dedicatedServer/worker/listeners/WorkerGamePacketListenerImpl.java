@@ -22,6 +22,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.ChunkPos;
 
 import java.util.BitSet;
@@ -73,6 +74,7 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
         localPlayerList.silentRemovePlayer(this.player);
         //this.server.getPlayerList().remove(this.player);
         this.player.getTextFilter().leave();
+        this.player.discard();
     }
 
     @Override
@@ -81,7 +83,7 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
         super.handleMovePlayer(pPacket);
         ChunkPos newChunkPos = player.chunkPosition();
         if(!oldChunkPos.equals(newChunkPos)){
-            System.out.println("ChunkChanged");
+            //System.out.println("ChunkChanged");
             boolean transferred = testOutsideWorkerBounds(player);
             testViewOutsideWorkerBounds();
             if(!transferred) sendFakePlayerMovement();
@@ -112,7 +114,7 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
      * Handle fake player login if other worker is in view distance
      */
     private void testViewOutsideWorkerBounds() {
-        System.out.println("Test view outside bounds");
+        //System.out.println("Test view outside bounds");
 
         int blockViewDistance = Mth.clamp(player.requestedViewDistance(), 2, server.getPlayerList().getViewDistance()) << 4;
         int px = Mth.floor(player.getX());
@@ -140,11 +142,11 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
         remove.and(preloadedWorkers);
 
         if(add.cardinality() > 0) {
-            System.out.println("ProxyBoundFakePlayerLoginPacket Pos:"+player.position());
+            System.out.println("Send ProxyBoundFakePlayerLoginPacket Pos:"+player.position());
             workerListener.send(new ProxyBoundFakePlayerLoginPacket(player, add));
         }
         if(remove.cardinality() > 0){
-            System.out.println("ProxyBoundFakePlayerDisconnectPacket - "+ remove);
+            System.out.println("Send ProxyBoundFakePlayerDisconnectPacket - "+ remove);
             workerListener.send(new ProxyBoundFakePlayerDisconnectPacket(player.getUUID(), remove));
         }
 

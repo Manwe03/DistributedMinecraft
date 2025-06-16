@@ -25,10 +25,11 @@ import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerTr
 import com.manwe.dsl.mixin.accessors.ConnectionAccessor;
 import com.manwe.dsl.mixin.accessors.ServerPlayerAccessor;
 import io.netty.channel.ChannelPipeline;
+import net.minecraft.Util;
 import net.minecraft.network.Connection;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.PacketListener;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.*;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.network.protocol.common.*;
@@ -38,10 +39,14 @@ import net.minecraft.server.level.ChunkTrackingView;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.server.network.FilteredText;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.scores.PlayerTeam;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class WorkerListenerImpl implements WorkerListener {
@@ -63,6 +68,7 @@ public class WorkerListenerImpl implements WorkerListener {
     @Override
     public void onDisconnect(DisconnectionDetails pDetails) {
         System.out.println("Worker<->Proxy tunnel Disconnected");
+        Thread.dumpStack();
     }
 
     @Override
@@ -92,7 +98,7 @@ public class WorkerListenerImpl implements WorkerListener {
         if(connection == null) {
             DistributedServerLevels.LOGGER.warn("ServerPlayer with UUID ["+uuid+"] does not have a listener");
         } else if (transferring.contains(uuid)) {
-            DistributedServerLevels.LOGGER.info("This player is being transferred to another worker");
+            DistributedServerLevels.LOGGER.info("Packet Ignored - This player is being transferred to another worker");
         } else if(connection.getPacketListener() instanceof WorkerGamePacketListenerImpl serverGamePacketListener) {
             server.execute(()->{ //Run on the minecraft main thread instead of the I/O thread
                 ((Packet<ServerGamePacketListener>) packet.getPayload()).handle(serverGamePacketListener);
@@ -136,11 +142,16 @@ public class WorkerListenerImpl implements WorkerListener {
         CommonListenerCookie cookie = packet.rebuildCookie();
 
         server.execute(()-> {
+            System.out.println("[#####] HandlePlayerTransfer [" + clonePlayer.getUUID()+"]");
+
+            System.out.println("Pre Transfer PlayerList: ");
+            server.getPlayerList().getPlayers().forEach(System.out::println);
+
             if (!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("Worker must have a localPlayerList");
 
             ServerPlayer serverPlayer = localPlayerList.getPlayer(clonePlayer.getUUID());
             if(serverPlayer instanceof ChunkLoadingFakePlayer fakePlayer){ //Fake player was preloaded in this worker
-                System.out.println("Disconnect fake player to replace it with cloned ServerPlayer");
+                DistributedServerLevels.LOGGER.info("\nDisconnect fake player. This worker had a fake player connected, disconnected to replace it with Clone");
                 fakePlayer.connection.onDisconnect(packet.getDefaultDisconnectionDetails()); //Disconnect
             }
 
@@ -152,6 +163,10 @@ public class WorkerListenerImpl implements WorkerListener {
 
             this.send(new ProxyBoundPlayerTransferACKPacket(this.workerId, clonePlayer.getUUID())); //Send Setup to proxy router for the new worker redirection
             if(proxyConnection.getPacketListener() instanceof WorkerGamePacketListenerImpl gamePacketListener) gamePacketListener.updateFakePlayers();
+
+            System.out.println("Post Transfer PlayerList: ");
+            server.getPlayerList().getPlayers().forEach(System.out::println);
+
             DistributedServerLevels.LOGGER.info("New player [" + clonePlayer.getDisplayName().getString() + "] transferred into worker [" + DSLServerConfigs.WORKER_ID.get() + "]");
         });
     }
@@ -163,10 +178,18 @@ public class WorkerListenerImpl implements WorkerListener {
         Connection proxyConnection = generateFakePlayerConnection(player, CommonListenerCookie.createInitial(packet.gameprofile,false));
 
         server.execute(()-> {
+            System.out.println("[#####] HandleFakePlayerLogin [" + player.getUUID()+"]");
+
+            System.out.println("Pre FakePlayerLogin PlayerList: ");
+            server.getPlayerList().getPlayers().forEach(System.out::println);
+
             if(!(server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("PlayerList is not an instance of LocalPlayerList");
             localPlayerList.placeNewChunkLoadingFakePlayer(serverLevel.orElse(server.overworld()), player);
             registerPlayerAndConnection(player, proxyConnection);
-            DistributedServerLevels.LOGGER.info("Fake Player ["+player.getDisplayName().getString()+"] placed in world at "+player.position());
+            //DistributedServerLevels.LOGGER.info("Fake Player ["+player.getDisplayName().getString()+"] placed in world at "+player.position());
+
+            System.out.println("Pre FakePlayerLogin PlayerList: ");
+            server.getPlayerList().getPlayers().forEach(System.out::println);
         });
     }
 
@@ -254,15 +277,20 @@ public class WorkerListenerImpl implements WorkerListener {
         if(!(gameListener instanceof WorkerGamePacketListenerImpl workerGameListener)) throw new RuntimeException("gameListener is not instance of WorkerGamePacketListenerImpl");
 
         server.execute(()->{
+            System.out.println("[#####] HandlePlayerEndTransfer [" + playerId+"]");
+
+            System.out.println("Pre End Transfer PlayerList: ");
+            server.getPlayerList().getPlayers().forEach(System.out::println);
+
             //Disconnect (game logic) call to this player gameListener
             workerGameListener.silentDisconnect();
-            System.out.println("handlePlayerEndTransfer remove connection "+playerId);
             Connection removed = playerConnections.remove(playerId); //Remove from map
             server.getConnection().getConnections().remove(removed); //Remove from ServerConnectionListener to stop tick() and avoid duplicates
             setFinishTransfering(playerId); //Remove form transferring
+
+            System.out.println("Post End Transfer PlayerList: ");
+            server.getPlayerList().getPlayers().forEach(System.out::println);
         });
-        System.out.println("PlayerList: ");
-        server.getPlayerList().getPlayers().forEach(System.out::println);
     }
 
     @Override
@@ -270,7 +298,7 @@ public class WorkerListenerImpl implements WorkerListener {
         ServerPlayer serverPlayer = server.getPlayerList().getPlayer(packet.getPlayerId());
         if(serverPlayer instanceof ChunkLoadingFakePlayer fakePlayer){
             fakePlayer.absMoveTo(packet.getPos().x,packet.getPos().y,packet.getPos().z);
-            System.out.println("Fake Player absMoveTo: " + fakePlayer.position());
+            //System.out.println("Fake Player absMoveTo: " + fakePlayer.position());
         }
     }
 
@@ -292,6 +320,49 @@ public class WorkerListenerImpl implements WorkerListener {
     @Override
     public void handleEntityTransfer(WorkerBoundEntityTransferPacket packet) {
         packet.placeEntity(server); //Add entity to level
+    }
+
+    @Override
+    public void handleRemoteChatMessage(WorkerBoundChatPacket packet) {
+        System.out.println("handleRemoteChatMessage");
+        server.execute(() -> {
+            if(!(this.server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("PlayerList not instance of LocalPlayerList");
+
+            /* Implement secure chat functionality
+            MutableComponent mutablecomponent = Component.literal("BBB");
+            String s = "Pepe";
+
+            mutablecomponent.withStyle(
+                a -> a.withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/tell " + s + " "))
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ENTITY, new HoverEvent.EntityTooltipInfo(EntityType.PLAYER, packet.playerId(), Component.literal(packet.playerName()))))
+                .withInsertion(s)
+            );
+
+
+            ChatType.Bound bound = ChatType.bind(
+                    ChatType.CHAT,
+                    server.registryAccess(),
+                    mutablecomponent
+            );
+            localPlayerList.broadcastChatMessage(packet.playerChatMessage(),bound);
+            */
+
+            MutableComponent mutablecomponent = Component.literal(packet.playerName()); //Player name
+
+            mutablecomponent.withStyle(
+                a -> a.withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/tell " + packet.playerName() + " "))
+                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_ENTITY, new HoverEvent.EntityTooltipInfo(EntityType.PLAYER, packet.playerId(), Component.literal(packet.playerName()))))
+                //.withInsertion(s)
+            );
+
+            PlayerChatMessage chatMessage = PlayerChatMessage.unsigned(packet.playerId(), packet.message());
+            localPlayerList.broadcastChatMessage(chatMessage,
+                ChatType.bind(ChatType.CHAT,
+                server.registryAccess(),
+                mutablecomponent
+            ));
+
+        });
     }
 
     private PacketListener getDedicatedPlayerListener(UUID playerId){

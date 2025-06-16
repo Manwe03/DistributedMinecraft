@@ -26,16 +26,12 @@ import net.minecraft.world.Container;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.RelativeMovement;
 import net.minecraft.world.entity.animal.horse.AbstractHorse;
 import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 
-import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Set;
 import java.util.function.Consumer;
 
 public class ChunkLoadingFakePlayer extends ServerPlayer {
@@ -48,6 +44,11 @@ public class ChunkLoadingFakePlayer extends ServerPlayer {
 
     public void setFakePlayerRequestedViewDistance(int viewDistance) {
         ((ServerPlayerAccessor)this).setRequestedViewDistance(viewDistance); //Set view distance as this player has no ClientInformation
+    }
+
+    @Override //Fake players entity manager should not broadcast any packet to any player
+    public boolean broadcastToPlayer(ServerPlayer pPlayer) {
+        return false;
     }
 
     @Override

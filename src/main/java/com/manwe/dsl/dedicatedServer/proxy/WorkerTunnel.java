@@ -32,7 +32,7 @@ public class WorkerTunnel {
         Path playerDir = server.getWorldPath(LevelResource.PLAYER_DATA_DIR);
 
         this.workerAddress = workerAddress;
-        this.connection = new  Connection(PacketFlow.CLIENTBOUND);
+        this.connection = new Connection(PacketFlow.CLIENTBOUND);
         this.channel = new Bootstrap() // Inicialización del cliente
                 .group(router.getEventLoopGroup())
                 .channel(NioSocketChannel.class)

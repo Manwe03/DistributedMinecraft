@@ -4,6 +4,7 @@ import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.dedicatedServer.worker.chunk.ChunkLoadingFakePlayer;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerGamePacketListenerImpl;
 import com.manwe.dsl.mixin.accessors.PlayerListAccessor;
+import com.manwe.dsl.mixinExtension.ServerLevelExtension;
 import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Dynamic;
 import io.netty.channel.ChannelPipeline;
@@ -12,6 +13,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.OutgoingChatMessage;
+import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.network.protocol.status.ServerStatus;
 import net.minecraft.resources.ResourceKey;
@@ -31,7 +35,9 @@ import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.PlayerDataStorage;
 
+import javax.annotation.Nullable;
 import java.util.*;
+import java.util.function.Predicate;
 
 public class LocalPlayerList extends DedicatedPlayerList {
     public LocalPlayerList(DedicatedServer pServer, LayeredRegistryAccess<RegistryLayer> pRegistries, PlayerDataStorage pPlayerIo) {
@@ -87,7 +93,7 @@ public class LocalPlayerList extends DedicatedPlayerList {
                 !flag,
                 flag2,
                 pPlayer.createCommonSpawnInfo(serverlevel1),
-                getServer().enforceSecureProfile()
+                false//getServer().enforceSecureProfile()
             )
         );
 
@@ -216,7 +222,8 @@ public class LocalPlayerList extends DedicatedPlayerList {
     public void placeNewChunkLoadingFakePlayer(ServerLevel level, ChunkLoadingFakePlayer fakePlayer) {
         ((PlayerListAccessor) this).getPlayers().add(fakePlayer);
         ((PlayerListAccessor) this).getPlayersByUUID().put(fakePlayer.getUUID(), fakePlayer);
-        level.addNewPlayer(fakePlayer);
+        ((ServerLevelExtension) level).distributedServerLevels$addEntityWithoutEvent(fakePlayer);
+        //level.addNewPlayer(fakePlayer);
     }
 
     public void silentRemovePlayer(ServerPlayer pPlayer) {
@@ -258,5 +265,16 @@ public class LocalPlayerList extends DedicatedPlayerList {
             ((PlayerListAccessor)this).getStats().remove(uuid);
             ((PlayerListAccessor)this).getAdvancements().remove(uuid);
         }
+    }
+
+    public void broadcastChatMessage(PlayerChatMessage pMessage, ChatType.Bound pBoundChatType) {
+        this.getServer().logChatMessage(pMessage.decoratedContent(), pBoundChatType, "Not Secure");
+        OutgoingChatMessage outgoingchatmessage = OutgoingChatMessage.create(pMessage);
+
+        for (ServerPlayer serverplayer : this.getPlayers()) {
+            boolean flag2 = false;
+            serverplayer.sendChatMessage(outgoingchatmessage, flag2, pBoundChatType);
+        }
+
     }
 }

@@ -3,12 +3,15 @@ package com.manwe.dsl.dedicatedServer.proxy.front.listeners;
 import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.connectionRouting.RegionRouter;
 import com.manwe.dsl.dedicatedServer.proxy.WorkerTunnel;
-import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
+import com.manwe.dsl.dedicatedServer.CustomDedicatedServer;
+import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundChatPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.WorkerBoundContainerPacket;
+import com.manwe.dsl.mixin.accessors.ServerGamePacketListenerImplAccessor;
 import io.netty.channel.ChannelFuture;
 import net.minecraft.network.Connection;
 import net.minecraft.network.DisconnectionDetails;
+import net.minecraft.network.chat.*;
 import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
@@ -22,17 +25,17 @@ import org.jetbrains.annotations.NotNull;
 public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
 
     //Direct pre-casted reference
-    ProxyDedicatedServer server;
+    CustomDedicatedServer server;
     RegionRouter router;
 
     //boolean blockClientMovementBeforeACK = true;
     public ProxyServerGameListener(MinecraftServer pServer, Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie, RegionRouter router) {
         super(pServer, pConnection, pPlayer, pCookie);
-        if(pServer instanceof ProxyDedicatedServer server1){
+        if(pServer instanceof CustomDedicatedServer server1){
             this.server = server1;
             this.router = router;
         }else {
-            throw new RuntimeException("ProxyServerGameListener not initialized from a ProxyDedicatedServer");
+            throw new RuntimeException("ProxyServerGameListener not initialized from a CustomDedicatedServer");
         }
     }
 
@@ -252,8 +255,42 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
      */
     @Override //TODO como manejar el chat?
     public void handleChat(@NotNull ServerboundChatPacket pPacket) {
-        WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
-        tunnel.send(new WorkerBoundContainerPacket(player.getUUID(),pPacket));
+        //super.handleChat(pPacket);
+        //router.route(player.getUUID()).send(new WorkerBoundContainerPacket(player.getUUID(),pPacket));
+
+        router.broadCast(new WorkerBoundChatPacket(pPacket.message(),this.player.getDisplayName().getString(),this.player.getUUID()));
+
+        /* Chat validation
+        Optional<LastSeenMessages> optional = ((ServerGamePacketListenerImplInvoker)this).invokeUnpackAndApplyLastSeen(pPacket.lastSeenMessages());
+        if (!optional.isEmpty()) {
+            ((ServerGamePacketListenerImplInvoker)this).invokeTryHandleChat(pPacket.message(), () -> {
+                PlayerChatMessage playerchatmessage;
+                try {
+                    //playerchatmessage = ((ServerGamePacketListenerImplInvoker)this).invokeGetSignedMessage(pPacket, optional.get());
+                    playerchatmessage = this.getSignedMessage(pPacket, optional.get());
+                } catch (SignedMessageChain.DecodeException signedmessagechain$decodeexception) {
+                    ((ServerGamePacketListenerImplInvoker)this).invokeHandleMessageDecodeFailure(signedmessagechain$decodeexception);
+                    return;
+                }
+
+                CompletableFuture<FilteredText> completablefuture = ((ServerGamePacketListenerImplInvoker)this).invokeFilterTextPacket(playerchatmessage.signedContent());
+                Component component = net.neoforged.neoforge.common.CommonHooks.getServerChatSubmittedDecorator().decorate(this.player, playerchatmessage.decoratedContent());
+                ((ServerGamePacketListenerImplAccessor)this).getChatMessageChain().append(completablefuture, e -> {
+                    if (component == null) return; // Forge: ServerChatEvent was canceled if this is null.
+                    PlayerChatMessage playerchatmessage1 = playerchatmessage.withUnsignedContent(component).filter(e.mask());
+
+                    //this.broadcastChatMessage(playerchatmessage1);
+                });
+            });
+        }*/
+    }
+
+    private PlayerChatMessage getSignedMessage(ServerboundChatPacket pPacket, LastSeenMessages pLastSeenMessages) throws SignedMessageChain.DecodeException {
+        SignedMessageBody signedmessagebody = new SignedMessageBody(pPacket.message(), pPacket.timeStamp(), pPacket.salt(), pLastSeenMessages);
+
+        if(pPacket.signature() != null) System.out.println("AAAAAA signature != null");
+
+        return ((ServerGamePacketListenerImplAccessor)this).getSignedMessageDecoder().unpack(pPacket.signature(), signedmessagebody);
     }
 
     @Override
@@ -389,8 +426,11 @@ public class ProxyServerGameListener extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleChatSessionUpdate(@NotNull ServerboundChatSessionUpdatePacket pPacket) {
+        System.out.println("AAAAAAAAAAAAAAAAAAAAAAAAAAAA handleChatSessionUpdate");
+        super.handleChatSessionUpdate(pPacket);
+        /*
         WorkerTunnel tunnel = router.route(player.getUUID()); //Select tunnel
-        tunnel.send(new WorkerBoundContainerPacket(player.getUUID(),pPacket));
+        tunnel.send(new WorkerBoundContainerPacket(player.getUUID(),pPacket));*/
     }
 
     @Override

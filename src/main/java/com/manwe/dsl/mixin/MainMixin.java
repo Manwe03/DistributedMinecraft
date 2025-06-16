@@ -1,7 +1,7 @@
 package com.manwe.dsl.mixin;
 
 import com.llamalad7.mixinextras.sugar.Local;
-import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
+import com.manwe.dsl.dedicatedServer.CustomDedicatedServer;
 import joptsimple.OptionSet;
 import joptsimple.OptionSpec;
 import net.minecraft.core.BlockPos;
@@ -45,16 +45,16 @@ public class MainMixin {
 
     ) {
         return (threadExecutor) -> {
-            ProxyDedicatedServer dedicatedserver1;
+            CustomDedicatedServer dedicatedserver1;
 
             //Punto inicial de Modificación pasa un Custom Dedicated Server que inicia una conexión custom
-            dedicatedserver1 = new ProxyDedicatedServer(threadExecutor, levelstoragesource$levelstorageaccess, packrepository, worldstem, dedicatedserversettings, DataFixers.getDataFixer(), services, LoggerChunkProgressListener::createFromGameruleRadius);
+            dedicatedserver1 = new CustomDedicatedServer(threadExecutor, levelstoragesource$levelstorageaccess, packrepository, worldstem, dedicatedserversettings, DataFixers.getDataFixer(), services, LoggerChunkProgressListener::createFromGameruleRadius);
 
             dedicatedserver1.setPort(optionset.valueOf(optionspec11));
             dedicatedserver1.setDemo(optionset.has(optionspec2));
             dedicatedserver1.setId(optionset.valueOf(optionspec12));
             boolean flag2 = !optionset.has(optionspec) && !optionset.valuesOf(optionspec15).contains("nogui");
-            if (dedicatedserver1 instanceof ProxyDedicatedServer dedicatedServer && flag2 && !GraphicsEnvironment.isHeadless()) {
+            if (dedicatedserver1 instanceof CustomDedicatedServer dedicatedServer && flag2 && !GraphicsEnvironment.isHeadless()) {
                 dedicatedServer.showGui();
             }
 

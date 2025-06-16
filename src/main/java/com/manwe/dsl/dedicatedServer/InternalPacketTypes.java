@@ -45,6 +45,8 @@ public class InternalPacketTypes {
     public static final PacketType<WorkerBoundFakePlayerMovePacket> PROXY_WORKER_FAKE_PLAYER_MOVE = createServerbound("worker_fake_player_move");
     public static final PacketType<WorkerBoundFakePlayerInformationPacket> PROXY_WORKER_FAKE_PLAYER_INFORMATION = createServerbound("worker_fake_player_information");
 
+    public static final PacketType<WorkerBoundChatPacket> PROXY_WORKER_CHAT_MESSAGE = createServerbound("worker_chat_message");
+
     private static <T extends Packet<WorkerListener>> PacketType<T> createServerbound(String pName) {
         return new PacketType<>(PacketFlow.SERVERBOUND, ResourceLocation.withDefaultNamespace(pName));
     }

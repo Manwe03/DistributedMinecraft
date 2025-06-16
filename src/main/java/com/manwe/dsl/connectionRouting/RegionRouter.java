@@ -3,7 +3,7 @@ package com.manwe.dsl.connectionRouting;
 import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.arbiter.ConnectionInfo;
 import com.manwe.dsl.config.DSLServerConfigs;
-import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
+import com.manwe.dsl.dedicatedServer.CustomDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.WorkerTunnel;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundRequestLevelInformationPacket;
 import io.netty.channel.EventLoopGroup;
@@ -11,7 +11,6 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.server.MinecraftServer;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
@@ -42,7 +41,7 @@ public class RegionRouter {
     private static final int regionSize = DSLServerConfigs.REGION_SIZE.get();
     private static final int workerId = DSLServerConfigs.WORKER_ID.get();
 
-    public RegionRouter(ProxyDedicatedServer server){
+    public RegionRouter(CustomDedicatedServer server){
         this.ioGroup = new NioEventLoopGroup(1);  //TODO especificar numero correcto de hilos
 
         List<ConnectionInfo> workers = server.getWorkers();

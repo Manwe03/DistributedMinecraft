@@ -1,6 +1,7 @@
-package com.manwe.dsl.dedicatedServer.proxy;
+package com.manwe.dsl.dedicatedServer;
 
 import com.manwe.dsl.DistributedServerLevels;
+import com.manwe.dsl.dedicatedServer.CustomDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.front.ProxyFrontendInit;
 import com.manwe.dsl.dedicatedServer.worker.WorkerFrontendInit;
 import com.manwe.dsl.mixin.accessors.ServerConnectionListenerAccessor;
@@ -17,9 +18,9 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.InetAddress;
 
-public class ProxyServerConnectionListener extends ServerConnectionListener {
+public class CustomServerConnectionListener extends ServerConnectionListener {
 
-    public ProxyServerConnectionListener(MinecraftServer pServer) {
+    public CustomServerConnectionListener(MinecraftServer pServer) {
         super(pServer);
     }
 
@@ -28,7 +29,7 @@ public class ProxyServerConnectionListener extends ServerConnectionListener {
      */
     public void startTcpServerListener(@Nullable InetAddress pAddress, int pPort) throws IOException {
         System.out.println("Proxy - startTcpServerListener");
-        if(!(this.getServer() instanceof ProxyDedicatedServer server)) throw new RuntimeException("ProxyServerConnectionListener not called from a ProxyDedicatedServer");
+        if(!(this.getServer() instanceof CustomDedicatedServer server)) throw new RuntimeException("CustomServerConnectionListener not called from a CustomDedicatedServer");
 
         if (pAddress == null) pAddress = new java.net.InetSocketAddress(pPort).getAddress();
         net.neoforged.neoforge.network.DualStackUtils.checkIPv6(pAddress);
@@ -46,8 +47,8 @@ public class ProxyServerConnectionListener extends ServerConnectionListener {
             }
 
             ChannelInitializer<Channel> initializer = server.isProxy()
-                ? new ProxyFrontendInit((ProxyDedicatedServer) this.getServer(), this)
-                : new WorkerFrontendInit((ProxyDedicatedServer) this.getServer(),this);
+                ? new ProxyFrontendInit((CustomDedicatedServer) this.getServer(), this)
+                : new WorkerFrontendInit((CustomDedicatedServer) this.getServer(),this);
 
             ((ServerConnectionListenerAccessor) this).getChannels().add(
                 new ServerBootstrap()
@@ -59,6 +60,10 @@ public class ProxyServerConnectionListener extends ServerConnectionListener {
                     .syncUninterruptibly()
             );
         }
+    }
 
+    @Override
+    public void tick() {
+        super.tick();
     }
 }

@@ -46,6 +46,8 @@ public class InternalGameProtocols {
                     .addPacket(InternalPacketTypes.PROXY_WORKER_FAKE_PLAYER_LOGIN, WorkerBoundFakePlayerLoginPacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.PROXY_WORKER_FAKE_PLAYER_MOVE, WorkerBoundFakePlayerMovePacket.STREAM_CODEC)
                     .addPacket(InternalPacketTypes.PROXY_WORKER_FAKE_PLAYER_INFORMATION, WorkerBoundFakePlayerInformationPacket.STREAM_CODEC)
+
+                    .addPacket(InternalPacketTypes.PROXY_WORKER_CHAT_MESSAGE, WorkerBoundChatPacket.STREAM_CODEC)
     );
     public static final ProtocolInfo<WorkerListener> SERVERBOUND = SERVERBOUND_TEMPLATE.bind(FriendlyByteBuf::new);
 

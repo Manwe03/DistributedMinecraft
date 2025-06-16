@@ -41,6 +41,7 @@ public class WorkerFakePlayerListenerImpl extends ServerGamePacketListenerImpl {
         localPlayerList.silentRemoveFakePlayer(this.player);
         //this.server.getPlayerList().remove(this.player);
         this.player.getTextFilter().leave();
+        this.player.discard();
     }
 
     /*

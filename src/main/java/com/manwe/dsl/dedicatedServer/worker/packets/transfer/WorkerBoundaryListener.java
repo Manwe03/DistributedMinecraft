@@ -3,7 +3,6 @@ package com.manwe.dsl.dedicatedServer.worker.packets.transfer;
 import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.connectionRouting.RegionRouter;
-import com.manwe.dsl.dedicatedServer.proxy.ProxyServerConnectionListener;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.WorkerConnection;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListenerImpl;
@@ -41,19 +40,21 @@ public class WorkerBoundaryListener {
 
             if(id != DSLServerConfigs.WORKER_ID.get()){
                 if(entity instanceof Player){
-                    System.out.println("Transfer Player NeoForge");
+                    //System.out.println("Transfer Player NeoForge");
                     //Ignored
                 }else {
-                    System.out.println("Transfer Entity NeoForge");
+                    //System.out.println("Transfer Entity NeoForge");
                     workerListener.send(new ProxyBoundEntityTransferPacket(entity,id));
-                    entity.remove(Entity.RemovalReason.DISCARDED); //DELETE
+                    try {
+                        entity.remove(Entity.RemovalReason.DISCARDED); //DELETE
+                    } catch (ArrayIndexOutOfBoundsException e){
+                        DistributedServerLevels.LOGGER.error("Entity could not be removed from source worker: "+entity.getName().getString(),e);
+                    }
                 }
             }
         } catch (NoSuchElementException exception){
             DistributedServerLevels.LOGGER.info("Entity tried to transfer before proxy initialization");
             //If some entity tried to change worker before proxy initialization this exception is thrown and we should prevent movement
-            SectionPos oldPos = event.getOldPos();
-            entity.setPosRaw(oldPos.x(),oldPos.y(),oldPos.z());
         }
     }
 }

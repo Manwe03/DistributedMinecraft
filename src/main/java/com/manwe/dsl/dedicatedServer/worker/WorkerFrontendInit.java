@@ -2,8 +2,8 @@ package com.manwe.dsl.dedicatedServer.worker;
 
 import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.dedicatedServer.InternalGameProtocols;
-import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
-import com.manwe.dsl.dedicatedServer.proxy.ProxyServerConnectionListener;
+import com.manwe.dsl.dedicatedServer.CustomDedicatedServer;
+import com.manwe.dsl.dedicatedServer.CustomServerConnectionListener;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListenerImpl;
 import com.manwe.dsl.mixin.accessors.ConnectionAccessor;
 import io.netty.channel.*;
@@ -13,10 +13,10 @@ import net.minecraft.network.protocol.PacketFlow;
 
 public class WorkerFrontendInit extends ChannelInitializer<Channel> {
 
-    private final ProxyDedicatedServer server;
-    private final ProxyServerConnectionListener listener;
+    private final CustomDedicatedServer server;
+    private final CustomServerConnectionListener listener;
 
-    public WorkerFrontendInit(ProxyDedicatedServer server, ProxyServerConnectionListener listener) {
+    public WorkerFrontendInit(CustomDedicatedServer server, CustomServerConnectionListener listener) {
         this.server = server;
         this.listener = listener;
     }

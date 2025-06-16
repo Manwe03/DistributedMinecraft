@@ -1,5 +1,6 @@
 package com.manwe.dsl.mixin.accessors;
 
+import net.minecraft.network.chat.SignedMessageChain;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.util.FutureChain;
 import net.minecraft.world.phys.Vec3;
@@ -11,4 +12,7 @@ public interface ServerGamePacketListenerImplAccessor {
 
     @Accessor("chatMessageChain")
     FutureChain getChatMessageChain();
+
+    @Accessor("signedMessageDecoder")
+    SignedMessageChain.Decoder getSignedMessageDecoder();
 }

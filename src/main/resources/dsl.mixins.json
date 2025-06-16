@@ -28,7 +28,8 @@
     "log.ClientboundLoginPacketMixin",
     "log.PlayerListMixin",
     "log.PlayerMixin",
-    "log.ServerPlayerMixin"
+    "log.ServerPlayerMixin",
+    "log.SignedMessageChainMixin"
   ],
   "client": [
     "log.ClientLevelInvoker",

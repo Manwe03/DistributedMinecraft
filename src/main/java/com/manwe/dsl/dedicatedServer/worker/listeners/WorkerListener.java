@@ -46,5 +46,7 @@ public interface WorkerListener extends ServerPacketListener {
 
     void handleEntityTransfer(WorkerBoundEntityTransferPacket packet);
 
+    void handleRemoteChatMessage(WorkerBoundChatPacket packet);
+
     Connection getPlayerConnection(UUID playerId);
 }

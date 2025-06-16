@@ -1,7 +1,7 @@
 package com.manwe.dsl.dedicatedServer.proxy.front;
 
-import com.manwe.dsl.dedicatedServer.proxy.ProxyDedicatedServer;
-import com.manwe.dsl.dedicatedServer.proxy.ProxyServerConnectionListener;
+import com.manwe.dsl.dedicatedServer.CustomDedicatedServer;
+import com.manwe.dsl.dedicatedServer.CustomServerConnectionListener;
 import com.manwe.dsl.dedicatedServer.proxy.front.listeners.ProxyServerHandshakeListener;
 import io.netty.channel.*;
 import io.netty.handler.timeout.ReadTimeoutHandler;
@@ -10,12 +10,12 @@ import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.server.network.LegacyQueryHandler;
 
 public class ProxyFrontendInit extends ChannelInitializer<Channel> {
-    private final ProxyDedicatedServer server;
-    private final ProxyServerConnectionListener listener;
+    private final CustomDedicatedServer server;
+    private final CustomServerConnectionListener listener;
 
     private static final int READ_TIMEOUT = Integer.parseInt(System.getProperty("neoforge.readTimeout", "30"));
 
-    public ProxyFrontendInit(ProxyDedicatedServer server, ProxyServerConnectionListener listener) {
+    public ProxyFrontendInit(CustomDedicatedServer server, CustomServerConnectionListener listener) {
         this.server = server;
         this.listener = listener;
     }

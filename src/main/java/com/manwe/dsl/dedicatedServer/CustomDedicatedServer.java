@@ -1,6 +1,7 @@
-package com.manwe.dsl.dedicatedServer.proxy;
+package com.manwe.dsl.dedicatedServer;
 
 import com.manwe.dsl.DistributedServerLevels;
+import com.manwe.dsl.dedicatedServer.proxy.RemotePlayerList;
 import com.manwe.dsl.mixinExtension.SetConnectionIntf;
 import com.manwe.dsl.arbiter.ArbiterClient;
 import com.manwe.dsl.arbiter.ConnectionInfo;
@@ -35,7 +36,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
-public class ProxyDedicatedServer extends DedicatedServer {
+public class CustomDedicatedServer extends DedicatedServer {
 
     URI arbiterUri = URI.create(DSLServerConfigs.ARBITER_ADDR.get());
     boolean isProxy = DSLServerConfigs.IS_PROXY.get();
@@ -46,12 +47,12 @@ public class ProxyDedicatedServer extends DedicatedServer {
     private ArbiterClient.ArbiterRes topology;
     private static final int SHARD_MAX_ENTITIES = 1_000_000;
 
-    public ProxyDedicatedServer(Thread pServerThread, LevelStorageSource.LevelStorageAccess pStorageSource, PackRepository pPackRepository, WorldStem pWorldStem, DedicatedServerSettings pSettings, DataFixer pFixerUpper, Services pServices, ChunkProgressListenerFactory pProgressListenerFactory) {
+    public CustomDedicatedServer(Thread pServerThread, LevelStorageSource.LevelStorageAccess pStorageSource, PackRepository pPackRepository, WorldStem pWorldStem, DedicatedServerSettings pSettings, DataFixer pFixerUpper, Services pServices, ChunkProgressListenerFactory pProgressListenerFactory) {
         super(pServerThread, pStorageSource, pPackRepository, pWorldStem, pSettings, pFixerUpper, pServices, pProgressListenerFactory);
 
         //Scuffed stuff here, convert the connection variable to mutable and set it after initialization by MinecraftServer
         //Interface used only to compile
-        ((SetConnectionIntf) this).setConnection(new ProxyServerConnectionListener(this));
+        ((SetConnectionIntf) this).setConnection(new CustomServerConnectionListener(this));
     }
 
     @Override
@@ -76,13 +77,13 @@ public class ProxyDedicatedServer extends DedicatedServer {
         Thread thread = new Thread("Server console handler") {
             @Override
             public void run() {
-                if (net.neoforged.neoforge.server.console.TerminalHandler.handleCommands(ProxyDedicatedServer.this)) return;
+                if (net.neoforged.neoforge.server.console.TerminalHandler.handleCommands(CustomDedicatedServer.this)) return;
                 BufferedReader bufferedreader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
 
                 String s1;
                 try {
-                    while (!ProxyDedicatedServer.this.isStopped() && ProxyDedicatedServer.this.isRunning() && (s1 = bufferedreader.readLine()) != null) {
-                        ProxyDedicatedServer.this.handleConsoleInput(s1, ProxyDedicatedServer.this.createCommandSourceStack());
+                    while (!CustomDedicatedServer.this.isStopped() && CustomDedicatedServer.this.isRunning() && (s1 = bufferedreader.readLine()) != null) {
+                        CustomDedicatedServer.this.handleConsoleInput(s1, CustomDedicatedServer.this.createCommandSourceStack());
                     }
                 } catch (IOException ioexception1) {
                     DistributedServerLevels.LOGGER.error("Exception handling console input", (Throwable)ioexception1);
@@ -128,10 +129,10 @@ public class ProxyDedicatedServer extends DedicatedServer {
 
         try {
 
-            if(this.getConnection() instanceof ProxyServerConnectionListener pServerConnectionListener){ //Listener custom
+            if(this.getConnection() instanceof CustomServerConnectionListener pServerConnectionListener){ //Listener custom
                 pServerConnectionListener.startTcpServerListener(inetaddress,this.getPort());
             } else { //Default listener
-                System.out.println("Connection is not an instance of ProxyServerConnectionListener");
+                System.out.println("Connection is not an instance of CustomServerConnectionListener");
                 this.getConnection().startTcpServerListener(inetaddress, this.getPort());
             }
 

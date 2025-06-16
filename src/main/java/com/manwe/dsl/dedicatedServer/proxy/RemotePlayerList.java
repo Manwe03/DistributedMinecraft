@@ -1,8 +1,8 @@
 package com.manwe.dsl.dedicatedServer.proxy;
 
 import com.manwe.dsl.DistributedServerLevels;
-import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.connectionRouting.RegionRouter;
+import com.manwe.dsl.dedicatedServer.CustomDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.front.listeners.ProxyServerGameListener;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
 import com.manwe.dsl.mixin.accessors.PlayerListAccessor;
@@ -26,7 +26,6 @@ import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
-import net.minecraft.world.level.storage.LevelData;
 import net.minecraft.world.level.storage.PlayerDataStorage;
 import net.minecraft.world.phys.Vec3;
 
@@ -41,18 +40,18 @@ public class RemotePlayerList extends DedicatedPlayerList {
 
     public RemotePlayerList(DedicatedServer pServer, LayeredRegistryAccess<RegistryLayer> pRegistries, PlayerDataStorage pPlayerIo) {
         super(pServer, pRegistries, pPlayerIo);
-        if(!(((PlayerListAccessor) this).getServer() instanceof ProxyDedicatedServer proxyDedicatedServer)) throw new RuntimeException("placeNewPlayer from RemotePlayerList was not called in a ProxyDedicatedServer");
+        if(!(((PlayerListAccessor) this).getServer() instanceof CustomDedicatedServer customDedicatedServer)) throw new RuntimeException("placeNewPlayer from RemotePlayerList was not called in a CustomDedicatedServer");
         //Create router
-        this.router = new RegionRouter(proxyDedicatedServer);
+        this.router = new RegionRouter(customDedicatedServer);
     }
 
     @Override
     public void placeNewPlayer(Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie) {
-        if(!(((PlayerListAccessor) this).getServer() instanceof ProxyDedicatedServer proxyDedicatedServer)) throw new RuntimeException("placeNewPlayer from RemotePlayerList was not called in a ProxyDedicatedServer");
-        if(!proxyDedicatedServer.isProxy()) throw new RuntimeException("Worker cannot have a remotePlayerList");
+        if(!(((PlayerListAccessor) this).getServer() instanceof CustomDedicatedServer customDedicatedServer)) throw new RuntimeException("placeNewPlayer from RemotePlayerList was not called in a CustomDedicatedServer");
+        if(!customDedicatedServer.isProxy()) throw new RuntimeException("Worker cannot have a remotePlayerList");
 
         GameProfile gameprofile = pPlayer.getGameProfile();
-        GameProfileCache gameprofilecache = proxyDedicatedServer.getProfileCache();
+        GameProfileCache gameprofilecache = customDedicatedServer.getProfileCache();
         String s;
         if (gameprofilecache != null) {
             Optional<GameProfile> optional = gameprofilecache.get(gameprofile.getId());
@@ -92,7 +91,7 @@ public class RemotePlayerList extends DedicatedPlayerList {
         }
         //CUSTOM STATE LOADED
 
-        ServerLevel serverlevel1 = dim != null ? proxyDedicatedServer.getLevel(dim) : proxyDedicatedServer.overworld();
+        ServerLevel serverlevel1 = dim != null ? customDedicatedServer.getLevel(dim) : customDedicatedServer.overworld();
         if(serverlevel1 == null) throw new RuntimeException("RemotePlayerList tried to get a null ServerLevel");
         //LevelData leveldata = serverlevel1.getLevelData();
         //pPlayer.loadGameTypes(optional1.orElse(null));
@@ -116,17 +115,41 @@ public class RemotePlayerList extends DedicatedPlayerList {
 
         System.out.println("Has ["+pPlayer.getUUID()+"] tunnel "+this.router.hasTunnel(pPlayer.getUUID()));
 
-        ProxyServerGameListener servergamepacketlistenerimpl = new ProxyServerGameListener(proxyDedicatedServer, pConnection, pPlayer, pCookie, this.router);
+        ProxyServerGameListener servergamepacketlistenerimpl = new ProxyServerGameListener(customDedicatedServer, pConnection, pPlayer, pCookie, this.router);
 
         pConnection.setupInboundProtocol(
-                GameProtocols.SERVERBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(proxyDedicatedServer.registryAccess(), servergamepacketlistenerimpl.getConnectionType())), servergamepacketlistenerimpl
+                GameProtocols.SERVERBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(customDedicatedServer.registryAccess(), servergamepacketlistenerimpl.getConnectionType())), servergamepacketlistenerimpl
         );
 
         //net.neoforged.neoforge.common.NeoForge.EVENT_BUS.post(new net.neoforged.neoforge.event.OnDatapackSyncEvent(this, pPlayer));
         pPlayer.getStats().markAllDirty();
-        proxyDedicatedServer.invalidateStatus();
+        customDedicatedServer.invalidateStatus();
 
 
         this.router.route(pPlayer.getUUID()).send(initPacket); //Send init to worker
     }
+
+    /*
+    @Override
+    public void broadcastChatMessage(PlayerChatMessage pMessage, ServerPlayer pSender, ChatType.Bound pBoundChatType) {
+        this.broadcastChatMessage(pMessage, pSender::shouldFilterMessageTo, pSender, pBoundChatType);
+    }
+
+    private void broadcastChatMessage(PlayerChatMessage pMessage, Predicate<ServerPlayer> pShouldFilterMessageTo, @Nullable ServerPlayer pSender, ChatType.Bound pBoundChatType) {
+        boolean flag = true;//pMessage.hasSignature() && !pMessage.hasExpiredServer(Instant.now());
+        this.getServer().logChatMessage(pMessage.decoratedContent(), pBoundChatType, flag ? null : "Not Secure");
+        OutgoingChatMessage outgoingchatmessage = OutgoingChatMessage.create(pMessage);
+        boolean flag1 = false;
+
+        for (ServerPlayer serverplayer : this.getPlayers()) {
+            boolean flag2 = pShouldFilterMessageTo.test(serverplayer);
+            serverplayer.sendChatMessage(outgoingchatmessage, flag2, pBoundChatType);
+            flag1 |= flag2 && pMessage.isFullyFiltered();
+        }
+
+        if (flag1 && pSender != null) {
+            pSender.sendSystemMessage(CHAT_FILTERED_FULL);
+        }
+    }
+     */
 }
