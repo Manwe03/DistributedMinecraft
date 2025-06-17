@@ -2,7 +2,6 @@ package com.manwe.dsl.dedicatedServer.proxy.back.packets;
 
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.proxy.back.listeners.ProxyListener;
-import io.netty.channel.embedded.EmbeddedChannel;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.network.*;
 import net.minecraft.network.codec.StreamCodec;
@@ -46,10 +45,8 @@ public class ProxyBoundContainerPacket implements Packet<ProxyListener> {
 
         this.playerId = buf.readUUID();
 
-        // 1. Leemos el resto de datos como un buffer aparte
         FriendlyByteBuf payloadBuf = new FriendlyByteBuf(buf.readBytes(buf.readableBytes()));
 
-        // 2. Los convertimos a paquetes PLAY
         List<Packet<? super ClientGamePacketListener>> list = new ArrayList<>();
         while (payloadBuf.isReadable()) {
             Packet<?> p = proto.codec().decode(payloadBuf);
@@ -70,9 +67,6 @@ public class ProxyBoundContainerPacket implements Packet<ProxyListener> {
         if(currentServer == null) throw new RuntimeException("MinecraftServer is null");
 
         buf.writeUUID(playerId);
-
-        EmbeddedChannel ch = new EmbeddedChannel();
-        Connection.configureInMemoryPipeline(ch.pipeline(), PacketFlow.CLIENTBOUND);
 
         ProtocolInfo<ClientGamePacketListener> proto = GameProtocols.CLIENTBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(currentServer.registryAccess(), ConnectionType.OTHER));
 

@@ -154,4 +154,9 @@ public class FakePlayerConnection extends Connection {
             DistributedServerLevels.LOGGER.warn("Worker tried to send an unknown packet", e);
         }
     }
+
+    @Override
+    public void handleDisconnection() {
+        super.handleDisconnection();
+    }
 }

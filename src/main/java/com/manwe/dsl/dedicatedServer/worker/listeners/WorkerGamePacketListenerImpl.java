@@ -101,7 +101,6 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
     private boolean testOutsideWorkerBounds(ServerPlayer player) {
         int id = RegionRouter.computeWorkerId(player.getX(),player.getZ());
         if(id != DSLServerConfigs.WORKER_ID.get()){ //Transfer
-            //player.absMoveTo(nextX,nextY,nextZ,fY,fX);     //Possible malicious client packets, no checks
             workerListener.setTransfering(player.getUUID());
             workerListener.send(new ProxyBoundPlayerTransferPacket(player, id, preloadedWorkers));
             DistributedServerLevels.LOGGER.info("Transfer in progress block all incoming packets from ["+ player.getUUID()+"] to this worker");

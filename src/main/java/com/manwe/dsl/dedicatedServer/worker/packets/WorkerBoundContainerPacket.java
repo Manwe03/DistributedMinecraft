@@ -2,9 +2,6 @@ package com.manwe.dsl.dedicatedServer.worker.packets;
 
 import com.manwe.dsl.dedicatedServer.InternalPacketTypes;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListener;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.handler.flow.FlowControlHandler;
 import net.minecraft.network.*;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.Packet;
@@ -35,23 +32,13 @@ public class WorkerBoundContainerPacket implements Packet<WorkerListener> {
     private WorkerBoundContainerPacket(FriendlyByteBuf buf) {
         this.playerId = buf.readUUID();
 
-        int length = buf.readableBytes();
-        ByteBuf payloadRaw = buf.readBytes(length);
-
         MinecraftServer currentServer = ServerLifecycleHooks.getCurrentServer();
         if(currentServer == null) throw new RuntimeException("MinecraftServer is null");
         ProtocolInfo<ServerGamePacketListener> protocolInfo = GameProtocols.SERVERBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(currentServer.registryAccess(), ConnectionType.OTHER));
 
-        //TODO si se puede crear una sola instancia del EmbeddedChannel en vez de una por serialización y deserialización
-        EmbeddedChannel channel = new EmbeddedChannel(
-                new Varint21FrameDecoder(null),
-                new FlowControlHandler(),
-                new PacketDecoder<>(protocolInfo)
-        );
-        channel.writeInbound(payloadRaw);
-        this.payload = channel.readInbound();
-        if(payload == null) throw new RuntimeException("P->W Decode: Payload is null");
-        channel.finish();
+        FriendlyByteBuf payloadBuf = new FriendlyByteBuf(buf.readBytes(buf.readableBytes()));
+        this.payload = (Packet<? extends ServerCommonPacketListener>) protocolInfo.codec().decode(payloadBuf);
+
     }
 
     private void write(FriendlyByteBuf buf) {
@@ -61,16 +48,7 @@ public class WorkerBoundContainerPacket implements Packet<WorkerListener> {
         if(currentServer == null) throw new RuntimeException("MinecraftServer is null");
         ProtocolInfo<ServerGamePacketListener> protocolInfo = GameProtocols.SERVERBOUND_TEMPLATE.bind(RegistryFriendlyByteBuf.decorator(currentServer.registryAccess(), ConnectionType.OTHER));
 
-        //TODO si se puede crear una sola instancia del EmbeddedChannel en vez de una por serialización y deserialización
-        EmbeddedChannel channel = new EmbeddedChannel(
-                new Varint21LengthFieldPrepender(),
-                new PacketEncoder<>(protocolInfo)
-        );
-        channel.writeOutbound(this.payload);
-        if(payload == null) throw new RuntimeException("P->W Encode: Payload is null");
-        ByteBuf encoded = channel.readOutbound();
-        buf.writeBytes(encoded);
-        channel.finish();
+        protocolInfo.codec().encode(buf, (Packet<? super ServerGamePacketListener>) this.payload);
     }
 
     public Packet<? extends ServerCommonPacketListener> getPayload(){

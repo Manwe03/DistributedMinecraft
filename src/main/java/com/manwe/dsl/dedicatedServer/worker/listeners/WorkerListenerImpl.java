@@ -220,7 +220,7 @@ public class WorkerListenerImpl implements WorkerListener {
      */
     @Override
     public void handlePlayerDisconnect(WorkerBoundPlayerDisconnectPacket packet) {
-        //System.out.println("Player Disconnect Requested By Proxy Handling in worker");
+        System.out.println("Player Disconnect Requested By Proxy Handling in worker");
         UUID playerId = packet.getPlayerID();
         boolean fakePlayer = packet.isFakePlayer();
 
@@ -260,21 +260,25 @@ public class WorkerListenerImpl implements WorkerListener {
 
     @Override
     public void handleFakePlayerMove(WorkerBoundFakePlayerMovePacket packet) {
-        ServerPlayer serverPlayer = server.getPlayerList().getPlayer(packet.getPlayerId());
-        if(serverPlayer instanceof ChunkLoadingFakePlayer fakePlayer){
-            fakePlayer.absMoveTo(packet.getPos().x,packet.getPos().y,packet.getPos().z);
-            //System.out.println("Fake Player absMoveTo: " + fakePlayer.position());
-        }
+        server.execute(()->{
+            ServerPlayer serverPlayer = server.getPlayerList().getPlayer(packet.getPlayerId());
+            if(serverPlayer instanceof ChunkLoadingFakePlayer fakePlayer){
+                fakePlayer.absMoveTo(packet.getPos().x,packet.getPos().y,packet.getPos().z);
+                //System.out.println("Fake Player absMoveTo: " + fakePlayer.position());
+            }
+        });
     }
 
     @Override
     public void handleFakePlayerInformation(WorkerBoundFakePlayerInformationPacket packet) {
-        ServerPlayer player = server.getPlayerList().getPlayer(packet.getPlayerId());
-        if(player instanceof ChunkLoadingFakePlayer fakePlayer){
-            fakePlayer.setFakePlayerRequestedViewDistance(packet.getViewDistance());
-        } else {
-            DistributedServerLevels.LOGGER.error("Tried to set view distance to a fake player that does not exists");
-        }
+        server.execute(()-> {
+            ServerPlayer player = server.getPlayerList().getPlayer(packet.getPlayerId());
+            if (player instanceof ChunkLoadingFakePlayer fakePlayer) {
+                fakePlayer.setFakePlayerRequestedViewDistance(packet.getViewDistance());
+            } else {
+                DistributedServerLevels.LOGGER.error("Tried to set view distance to a fake player that does not exists");
+            }
+        });
     }
 
     @Override
@@ -284,7 +288,9 @@ public class WorkerListenerImpl implements WorkerListener {
 
     @Override
     public void handleEntityTransfer(WorkerBoundEntityTransferPacket packet) {
-        packet.placeEntity(server); //Add entity to level
+        server.execute(()-> {
+            packet.placeEntity(server); //Add entity to level
+        });
     }
 
     @Override
