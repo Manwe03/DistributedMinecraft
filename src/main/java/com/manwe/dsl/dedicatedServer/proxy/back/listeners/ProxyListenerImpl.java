@@ -8,7 +8,6 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundLevelInformationPacket;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundPlayerInitACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
@@ -17,7 +16,6 @@ import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFake
 import com.manwe.dsl.dedicatedServer.worker.packets.chunkloading.WorkerBoundFakePlayerMovePacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerDisconnectPacket;
-import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginACKPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerEndTransferPacket;
 import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundPlayerTransferPacket;
 import io.netty.channel.ChannelPipeline;
@@ -29,6 +27,7 @@ import net.minecraft.network.ConnectionProtocol;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.protocol.common.CommonPacketTypes;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -44,7 +43,6 @@ public class ProxyListenerImpl implements ProxyListener {
 
     //Players transferring waiting for the handlePlayerTransferACK from the receiving worker
     private final Set<UUID> pendingTransfers = ConcurrentHashMap.newKeySet();
-    private final Map<UUID,Runnable> pendingLogin = new HashMap<>();
 
     private final ChannelPipeline pipeline; //Proxy <-> Worker pipeline
     private final RegionRouter router;
@@ -57,7 +55,7 @@ public class ProxyListenerImpl implements ProxyListener {
     }
 
     @Override
-    public void onDisconnect(DisconnectionDetails pDetails) {
+    public void onDisconnect(@NotNull DisconnectionDetails pDetails) {
         System.out.println("PROXY onDisconnect");
     }
 
@@ -67,18 +65,8 @@ public class ProxyListenerImpl implements ProxyListener {
     }
 
     @Override
-    public ConnectionProtocol protocol() {
+    public @NotNull ConnectionProtocol protocol() {
         return ProxyListener.super.protocol();
-    }
-
-    /**
-     * Delays this login code until the proxy receives the worker confirmation that it has created the player
-     * @param uuid Owner
-     * @param runnable Code
-     */
-    @Override
-    public void addPendingLogin(UUID uuid, Runnable runnable){
-        pendingLogin.put(uuid,runnable);
     }
 
     ////////////////////////////////////////////////////
@@ -89,7 +77,6 @@ public class ProxyListenerImpl implements ProxyListener {
 
     /**
      * handle packets sent by workers
-     * @param packet
      */
     @Override
     public void handleWorkerProxyPacket(ProxyBoundContainerPacket packet) {
@@ -155,15 +142,6 @@ public class ProxyListenerImpl implements ProxyListener {
     }
 
     @Override
-    public void handlePlayerInitACK(ProxyBoundPlayerInitACKPacket packet) {
-        System.out.println("Received init ACK, sending ClientboundLoginPacket");
-        pendingLogin.get(packet.getPlayerId()).run();
-
-        router.route(packet.getPlayerId()).send(new WorkerBoundPlayerLoginACKPacket(packet.getPlayerId())); //Send ack proxy has sent the login packet
-        System.out.println("proxy has sent the login packet");
-    }
-
-    @Override
     public void handleFakePlayerLogin(ProxyBoundFakePlayerLoginPacket packet) {
         packet.getWorkers().stream().forEach(id -> {    //Login all fake players is other workers
             router.route(id).send(new WorkerBoundFakePlayerLoginPacket(packet));
@@ -186,9 +164,7 @@ public class ProxyListenerImpl implements ProxyListener {
 
     @Override
     public void handleFakePlayerInformation(ProxyBoundFakePlayerInformationPacket packet) {
-        packet.getWorkers().stream().forEach(id -> {
-            router.route(id).send(new WorkerBoundFakePlayerInformationPacket(packet));
-        });
+        packet.getWorkers().stream().forEach(id -> router.route(id).send(new WorkerBoundFakePlayerInformationPacket(packet)));
     }
 
     @Override
@@ -201,4 +177,8 @@ public class ProxyListenerImpl implements ProxyListener {
         router.route(packet.getWorkerId()).send(new WorkerBoundEntityTransferPacket(packet.getEntityNbt(),packet.getEntityLocalId()));
     }
 
+    @Override
+    public void handleSyncTime(ProxyBoundSyncTimePacket packet) {
+        router.server.addSugestedLevelTime(packet.levelTime);
+    }
 }

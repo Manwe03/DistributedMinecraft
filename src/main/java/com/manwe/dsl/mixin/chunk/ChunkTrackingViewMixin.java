@@ -13,7 +13,7 @@ public interface ChunkTrackingViewMixin {
     @Inject(method = "isWithinDistance", at = @At("RETURN"), cancellable = true)
     private static void isWithinDistance(int pCenterX, int pCenterZ, int pViewDistance, int pX, int pZ, boolean pIncludeOuterChunksAdjacentToViewBorder, CallbackInfoReturnable<Boolean> cir) {
         //In chunk cords, pX pZ
-        if(!RegionRouter.isChunkInWorkerDomain(pX,pZ)) {
+        if(RegionRouter.isChunkOutsideWorkerDomain(pX, pZ)) {
             cir.setReturnValue(false); //Set false if outside worker bounds
         }
     }

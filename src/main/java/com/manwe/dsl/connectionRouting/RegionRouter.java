@@ -41,14 +41,16 @@ public class RegionRouter {
     private static final int regionSize = DSLServerConfigs.REGION_SIZE.get();
     private static final int workerId = DSLServerConfigs.WORKER_ID.get();
 
+    public final CustomDedicatedServer server;
+
     public RegionRouter(CustomDedicatedServer server){
         this.ioGroup = new NioEventLoopGroup(1);  //TODO especificar numero correcto de hilos
+        this.server = server;
 
-        List<ConnectionInfo> workers = server.getWorkers();
-
+        List<ConnectionInfo> workers = this.server.getWorkers();
         //Create a tunnel for each worker
         for(ConnectionInfo connection : workers){
-            WorkerTunnel tunnel = new WorkerTunnel(new InetSocketAddress(connection.ip(),connection.port()),this, server);
+            WorkerTunnel tunnel = new WorkerTunnel(new InetSocketAddress(connection.ip(),connection.port()),this, this.server);
             workerTunnels.put(connection.id(),tunnel);
         }
         workerTunnels.get(1).send(new WorkerBoundRequestLevelInformationPacket()); //Request the spawn position
@@ -56,7 +58,6 @@ public class RegionRouter {
 
     /**
      * @param playerID current player id of the incoming packets
-     * @param proxyServer reference of the proxyServer
      * @return tunnel to the corresponding worker
      */
     public WorkerTunnel route(UUID playerID){
@@ -70,16 +71,13 @@ public class RegionRouter {
      * Transfers this player to the specified worker
      * @param playerId UUID of the player to transfer
      * @param workerId ID of the worker the player is being transferred
-     * @return tunnel to the worker with workerId
      */
-    public WorkerTunnel transferClientToWorker(UUID playerId, int workerId){
+    public void transferClientToWorker(UUID playerId, int workerId){
         WorkerTunnel newTunnel = workerTunnels.get(workerId);
         playerWorkerTunnels.put(playerId,newTunnel); //Set this player to this tunnel. All route() operations now point to this tunnel
-        return newTunnel;
     }
 
     /**
-     * @param playerId
      * @return If this player has a tunnel with some worker already registered
      */
     public boolean hasTunnel(UUID playerId){
@@ -113,9 +111,7 @@ public class RegionRouter {
     }
 
     public void broadCast(Packet<?> packet){
-        workerTunnels.values().forEach(workerTunnel -> {
-            workerTunnel.send(packet);
-        });
+        workerTunnels.values().forEach(workerTunnel -> workerTunnel.send(packet));
     }
 
     public void returnToClient(UUID playerID, Packet<?> packet){
@@ -171,9 +167,9 @@ public class RegionRouter {
      * @param z chunk coordinates
      * @return The ID of the server allocated to this position
      */
-    public static boolean isChunkInWorkerDomain(int x, int z){
-        if(nWorkers == 1) return true;
-        if (nWorkers == 2) return z >= 0 ? workerId == 1 : workerId == 2;
+    public static boolean isChunkOutsideWorkerDomain(int x, int z){
+        if(nWorkers == 1) return false;
+        if (nWorkers == 2) return z >= 0 ? workerId != 1 : workerId != 2;
         if (nWorkers % 4 != 0) throw new RuntimeException("Invalid number of workers n:"+nWorkers+". Valid numbers are 1, 2 or any other number divisible by 4");
 
         //To file region cords 512*512
@@ -190,7 +186,7 @@ public class RegionRouter {
         int nRegions = maxSide / regionSize;
         int offset = (nRegions == 0) ? 1 : (int) Math.floor(Math.log(nRegions) / Math.log(2)) + 2;
 
-        return workerId == base + offset;
+        return workerId != base + offset;
     }
 
     /**

@@ -6,7 +6,6 @@ import com.manwe.dsl.dedicatedServer.CustomDedicatedServer;
 import com.manwe.dsl.dedicatedServer.proxy.front.listeners.ProxyServerGameListener;
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
 import com.manwe.dsl.mixin.accessors.PlayerListAccessor;
-import com.mojang.authlib.GameProfile;
 import com.mojang.serialization.Dynamic;
 import net.minecraft.core.LayeredRegistryAccess;
 import net.minecraft.nbt.CompoundTag;
@@ -23,11 +22,11 @@ import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
-import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.dimension.DimensionType;
 import net.minecraft.world.level.storage.PlayerDataStorage;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
@@ -36,30 +35,19 @@ import java.util.*;
  */
 public class RemotePlayerList extends DedicatedPlayerList {
 
-    RegionRouter router; //Un router por proxy es decir solo 1
+    private final RegionRouter router; //Un router por proxy es decir solo 1
 
-    public RemotePlayerList(DedicatedServer pServer, LayeredRegistryAccess<RegistryLayer> pRegistries, PlayerDataStorage pPlayerIo) {
+    public RemotePlayerList(DedicatedServer pServer, LayeredRegistryAccess<RegistryLayer> pRegistries, PlayerDataStorage pPlayerIo, RegionRouter router) {
         super(pServer, pRegistries, pPlayerIo);
-        if(!(((PlayerListAccessor) this).getServer() instanceof CustomDedicatedServer customDedicatedServer)) throw new RuntimeException("placeNewPlayer from RemotePlayerList was not called in a CustomDedicatedServer");
+        //if(!(((PlayerListAccessor) this).getServer() instanceof CustomDedicatedServer customDedicatedServer)) throw new RuntimeException("placeNewPlayer from RemotePlayerList was not called in a CustomDedicatedServer");
         //Create router
-        this.router = new RegionRouter(customDedicatedServer);
+        this.router = router; //new RegionRouter(customDedicatedServer);
     }
 
     @Override
-    public void placeNewPlayer(Connection pConnection, ServerPlayer pPlayer, CommonListenerCookie pCookie) {
+    public void placeNewPlayer(@NotNull Connection pConnection, @NotNull ServerPlayer pPlayer, @NotNull CommonListenerCookie pCookie) {
         if(!(((PlayerListAccessor) this).getServer() instanceof CustomDedicatedServer customDedicatedServer)) throw new RuntimeException("placeNewPlayer from RemotePlayerList was not called in a CustomDedicatedServer");
         if(!customDedicatedServer.isProxy()) throw new RuntimeException("Worker cannot have a remotePlayerList");
-
-        GameProfile gameprofile = pPlayer.getGameProfile();
-        GameProfileCache gameprofilecache = customDedicatedServer.getProfileCache();
-        String s;
-        if (gameprofilecache != null) {
-            Optional<GameProfile> optional = gameprofilecache.get(gameprofile.getId());
-            s = optional.map(GameProfile::getName).orElse(gameprofile.getName());
-            gameprofilecache.add(gameprofile);
-        } else {
-            s = gameprofile.getName();
-        }
 
         //LOAD CUSTOM SAVE STATE IN PROXY
         ResourceKey<Level> dim = null;
@@ -127,6 +115,11 @@ public class RemotePlayerList extends DedicatedPlayerList {
 
 
         this.router.route(pPlayer.getUUID()).send(initPacket); //Send init to worker
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
     }
 
     /*

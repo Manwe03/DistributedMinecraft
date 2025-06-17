@@ -6,26 +6,21 @@ import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundF
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerLoginPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.chunkloading.ProxyBoundFakePlayerMovePacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundLevelInformationPacket;
-import com.manwe.dsl.dedicatedServer.proxy.back.packets.login.ProxyBoundPlayerInitACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundEntityTransferPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferACKPacket;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundPlayerTransferPacket;
 import net.minecraft.network.ClientboundPacketListener;
 import net.minecraft.network.ConnectionProtocol;
-
-import java.util.UUID;
+import org.jetbrains.annotations.NotNull;
 
 public interface ProxyListener extends ClientboundPacketListener {
     @Override
-    default ConnectionProtocol protocol() {
+    default @NotNull ConnectionProtocol protocol() {
         return ConnectionProtocol.PLAY;
     }
 
-    void addPendingLogin(UUID uuid, Runnable runnable);
-
     /**
      * handle packets sent by workers
-     * @param packet
      */
     void handleWorkerProxyPacket(ProxyBoundContainerPacket packet);
 
@@ -34,8 +29,6 @@ public interface ProxyListener extends ClientboundPacketListener {
     void handlePlayerTransferACK(ProxyBoundPlayerTransferACKPacket packet);
 
     void handleSavePlayerState(ProxyBoundSavePlayerStatePacket packet);
-
-    void handlePlayerInitACK(ProxyBoundPlayerInitACKPacket packet);
 
     void handleFakePlayerLogin(ProxyBoundFakePlayerLoginPacket packet);
 
@@ -48,4 +41,10 @@ public interface ProxyListener extends ClientboundPacketListener {
     void handleLevelInformation(ProxyBoundLevelInformationPacket packet);
 
     void handleEntityTrasnfer(ProxyBoundEntityTransferPacket packet);
+
+    /**
+     * Handles worker time of day responses
+     * Sends message to be compared with other workers
+     */
+    void handleSyncTime(ProxyBoundSyncTimePacket packet);
 }
