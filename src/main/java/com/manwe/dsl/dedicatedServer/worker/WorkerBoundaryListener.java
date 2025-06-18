@@ -1,4 +1,4 @@
-package com.manwe.dsl.dedicatedServer.worker.packets.transfer;
+package com.manwe.dsl.dedicatedServer.worker;
 
 import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.config.DSLServerConfigs;

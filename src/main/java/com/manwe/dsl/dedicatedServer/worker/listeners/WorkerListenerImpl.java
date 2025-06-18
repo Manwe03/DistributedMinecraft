@@ -264,7 +264,7 @@ public class WorkerListenerImpl implements WorkerListener {
             ServerPlayer serverPlayer = server.getPlayerList().getPlayer(packet.getPlayerId());
             if(serverPlayer instanceof ChunkLoadingFakePlayer fakePlayer){
                 fakePlayer.absMoveTo(packet.getPos().x,packet.getPos().y,packet.getPos().z);
-                //System.out.println("Fake Player absMoveTo: " + fakePlayer.position());
+                fakePlayer.serverLevel().getChunkSource().move(fakePlayer);
             }
         });
     }

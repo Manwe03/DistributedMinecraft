@@ -19,10 +19,10 @@ public class TickingTrackerMixin {
      */
     @Overwrite
     protected int getLevel(long pChunkPos) {
-        if(RegionRouter.isChunkInWorkerDomain(pChunkPos)){
-            return this.chunks.get(pChunkPos);
-        } else {
+        if(RegionRouter.isChunkOutsideWorkerDomain(pChunkPos)){
             return this.chunks.defaultReturnValue();
+        } else {
+            return this.chunks.get(pChunkPos);
         }
     }
 }

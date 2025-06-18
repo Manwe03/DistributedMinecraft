@@ -1,7 +1,7 @@
 package com.manwe.dsl;
 
 import com.manwe.dsl.config.DSLServerConfigs;
-import com.manwe.dsl.dedicatedServer.worker.packets.transfer.WorkerBoundaryListener;
+import com.manwe.dsl.dedicatedServer.worker.WorkerBoundaryListener;
 import org.slf4j.Logger;
 
 import com.mojang.logging.LogUtils;

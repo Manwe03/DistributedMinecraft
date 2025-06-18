@@ -100,6 +100,7 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
      */
     private boolean testOutsideWorkerBounds(ServerPlayer player) {
         int id = RegionRouter.computeWorkerId(player.getX(),player.getZ());
+        //System.out.println("Test Outside Worker Bounds id:"+id+" workerId:"+DSLServerConfigs.WORKER_ID.get());
         if(id != DSLServerConfigs.WORKER_ID.get()){ //Transfer
             workerListener.setTransfering(player.getUUID());
             workerListener.send(new ProxyBoundPlayerTransferPacket(player, id, preloadedWorkers));
