@@ -16,6 +16,8 @@ public class DSLServerConfigs {
     public static final ModConfigSpec.ConfigValue<Integer> REGION_SIZE;
     public static final ModConfigSpec.ConfigValue<Integer> WORKER_SIZE;
 
+    public static final ModConfigSpec.ConfigValue<Boolean> LOG_TICK_TIME;
+
     public static final ModConfigSpec.ConfigValue<Boolean> USE_ARBITER;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> CONNECTIONS;
     public static final ModConfigSpec.ConfigValue<Integer> PORT;
@@ -24,6 +26,7 @@ public class DSLServerConfigs {
         BUILDER.push("Server");
         IS_PROXY = BUILDER.comment("Is this node a proxy? (only one can be the proxy)").define("is_proxy",true);
         WORKER_ID = BUILDER.comment("If false which worker id?").define("worker_id",1);
+        LOG_TICK_TIME = BUILDER.comment("Log every tick duration of every worker").define("log_tick_time",false);
         BUILDER.pop();
 
         BUILDER.push("Nodes").comment("This values need to be equal in all nodes");

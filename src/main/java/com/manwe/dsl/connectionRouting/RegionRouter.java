@@ -155,7 +155,7 @@ public class RegionRouter {
      * @param chunkZ chunk coordinates
      * @return The ID of the server allocated to this position
      */
-    private static int computeWorkerIdChunk(int chunkX, int chunkZ) {
+    public static int computeWorkerIdChunk(int chunkX, int chunkZ) {
         int regionX = chunkX >> regionSize;
         int regionZ = chunkZ >> regionSize;
         return Math.min(Math.max((regionX < 0 ? (-regionX) - 1 : regionX), (regionZ < 0 ? (-regionZ) - 1 : regionZ)) + 1, nWorkers);

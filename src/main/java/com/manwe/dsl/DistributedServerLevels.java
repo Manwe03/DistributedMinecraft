@@ -1,6 +1,8 @@
 package com.manwe.dsl;
 
 import com.manwe.dsl.config.DSLServerConfigs;
+import com.manwe.dsl.dedicatedServer.worker.LocalProfiler;
+import com.manwe.dsl.dedicatedServer.worker.MetricFileLogger;
 import com.manwe.dsl.dedicatedServer.worker.WorkerBoundaryListener;
 import org.slf4j.Logger;
 
@@ -48,6 +50,8 @@ public class DistributedServerLevels {
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, DSLServerConfigs.SPEC, "dsl-server.toml");
         NeoForge.EVENT_BUS.register(new WorkerBoundaryListener());
+        NeoForge.EVENT_BUS.register(new LocalProfiler());
+        NeoForge.EVENT_BUS.register(MetricFileLogger.class);
 
     }
 

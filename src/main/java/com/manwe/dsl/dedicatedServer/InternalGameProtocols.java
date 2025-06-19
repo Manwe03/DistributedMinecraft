@@ -69,6 +69,7 @@ public class InternalGameProtocols {
                     .addPacket(InternalPacketTypes.WORKER_PROXY_FAKE_PLAYER_DISCONNECT, ProxyBoundFakePlayerDisconnectPacket.STREAM_CODEC)
 
                     .addPacket(InternalPacketTypes.WORKER_PROXY_SYNC_TIME, ProxyBoundSyncTimePacket.STREAM_CODEC)
+                    .addPacket(InternalPacketTypes.WORKER_PROXY_HEALTH, ProxyBoundHealthPacket.STREAM_CODEC)
     );
 
     public static final ProtocolInfo<ProxyListener> CLIENTBOUND = CLIENTBOUND_TEMPLATE.bind(FriendlyByteBuf::new);

@@ -67,6 +67,7 @@ public class InternalPacketTypes {
     public static final PacketType<ProxyBoundFakePlayerDisconnectPacket> WORKER_PROXY_FAKE_PLAYER_DISCONNECT = createClientbound("proxy_fake_player_disconnect");
 
     public static final PacketType<ProxyBoundSyncTimePacket> WORKER_PROXY_SYNC_TIME = createClientbound("proxy_sync_time");
+    public static final PacketType<ProxyBoundHealthPacket> WORKER_PROXY_HEALTH = createClientbound("proxy_health");
 
     private static <T extends Packet<ProxyListener>> PacketType<T> createClientbound(String pId) {
         return new PacketType<>(PacketFlow.CLIENTBOUND, ResourceLocation.withDefaultNamespace(pId));

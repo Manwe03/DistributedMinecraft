@@ -47,4 +47,6 @@ public interface ProxyListener extends ClientboundPacketListener {
      * Sends message to be compared with other workers
      */
     void handleSyncTime(ProxyBoundSyncTimePacket packet);
+
+    void handleWorkerHealth(ProxyBoundHealthPacket packet);
 }
