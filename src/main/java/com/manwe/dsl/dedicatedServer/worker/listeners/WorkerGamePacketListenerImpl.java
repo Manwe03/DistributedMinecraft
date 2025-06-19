@@ -79,15 +79,13 @@ public class WorkerGamePacketListenerImpl extends ServerGamePacketListenerImpl {
 
     @Override
     public void handleMovePlayer(ServerboundMovePlayerPacket pPacket) {
-        ChunkPos oldChunkPos = player.chunkPosition();
         super.handleMovePlayer(pPacket);
-        ChunkPos newChunkPos = player.chunkPosition();
-        if(!oldChunkPos.equals(newChunkPos)){
-            //System.out.println("ChunkChanged");
-            boolean transferred = testOutsideWorkerBounds(player);
-            testViewOutsideWorkerBounds();
-            if(!transferred) sendFakePlayerMovement();
-        }
+    }
+
+    public void transferPlayer(){
+        boolean transferred = testOutsideWorkerBounds(player);
+        testViewOutsideWorkerBounds();
+        if(!transferred) sendFakePlayerMovement();
     }
 
     public void updateFakePlayers(){

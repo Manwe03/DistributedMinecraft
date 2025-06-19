@@ -51,9 +51,10 @@ import java.util.function.BooleanSupplier;
 public class CustomDedicatedServer extends DedicatedServer {
 
     URI arbiterUri = URI.create(DSLServerConfigs.ARBITER_ADDR.get());
-    boolean isProxy = DSLServerConfigs.IS_PROXY.get();
-    int workerSize = DSLServerConfigs.WORKER_SIZE.get();
-    int workerId = DSLServerConfigs.WORKER_ID.get();
+    private final boolean isProxy = DSLServerConfigs.IS_PROXY.get();
+    private final int workerSize = DSLServerConfigs.WORKER_SIZE.get();
+    public int workerId = DSLServerConfigs.WORKER_ID.get();
+    public boolean logTiks = DSLServerConfigs.LOG_TICK_TIME.get();
     ArbiterClient arbiterClient = new ArbiterClient(arbiterUri);
     private ArbiterClient.ArbiterRes topology;
     private static final int SHARD_MAX_ENTITIES = 1_000_000;
@@ -61,6 +62,9 @@ public class CustomDedicatedServer extends DedicatedServer {
     private final Map<String,Long> levelTime = new ConcurrentHashMap<>();
     private final AtomicInteger timeSugestions = new AtomicInteger();
     private RegionRouter router = null;
+
+    public Map<Integer, Float> workersMSPT = new ConcurrentHashMap<>();
+    public Map<Integer, List<Long>> workersNanoTicks = new HashMap<>();
 
     public CustomDedicatedServer(Thread pServerThread, LevelStorageSource.LevelStorageAccess pStorageSource, PackRepository pPackRepository, WorldStem pWorldStem, DedicatedServerSettings pSettings, DataFixer pFixerUpper, Services pServices, ChunkProgressListenerFactory pProgressListenerFactory) {
         super(pServerThread, pStorageSource, pPackRepository, pWorldStem, pSettings, pFixerUpper, pServices, pProgressListenerFactory);

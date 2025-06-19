@@ -7,6 +7,7 @@
     "MainMixin",
     "MinecraftServerInvoker",
     "ServerLevelMixin",
+    "StatsComponentMixin",
     "accessors.ConnectionAccessor",
     "accessors.DedicatedServerAccessor",
     "accessors.EntityAccessor",

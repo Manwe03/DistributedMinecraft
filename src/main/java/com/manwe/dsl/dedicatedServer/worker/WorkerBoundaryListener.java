@@ -4,13 +4,14 @@ import com.manwe.dsl.DistributedServerLevels;
 import com.manwe.dsl.config.DSLServerConfigs;
 import com.manwe.dsl.connectionRouting.RegionRouter;
 import com.manwe.dsl.dedicatedServer.proxy.back.packets.transfer.ProxyBoundEntityTransferPacket;
-import com.manwe.dsl.dedicatedServer.worker.WorkerConnection;
+import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerGamePacketListenerImpl;
 import com.manwe.dsl.dedicatedServer.worker.listeners.WorkerListenerImpl;
 import net.minecraft.core.SectionPos;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.EntityEvent;
+import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
 
 import java.util.NoSuchElementException;
 
@@ -18,30 +19,35 @@ public class WorkerBoundaryListener {
 
     @SubscribeEvent
     public void onEnteringSection(EntityEvent.EnteringSection event){
+        if (event.didChunkChange()) {
+            int chunkX = SectionPos.x(event.getPackedNewPos());
+            int chunkZ = SectionPos.z(event.getPackedNewPos());
+            int id = RegionRouter.computeWorkerIdChunk(chunkX, chunkZ);
+            checkAndTransfer(event.getEntity(),id);
+        }
+    }
 
-        Entity entity = event.getEntity();
-        if (entity.level().isClientSide()) return;   // Solo servidor
-        if (entity.isRemoved())            return;   // Ya eliminada
-        if (!event.didChunkChange()) return;
+    @SubscribeEvent
+    public void onEntityTeleportation(EntityTeleportEvent e){
+        int id = RegionRouter.computeWorkerId(e.getTargetX(), e.getTargetZ());
+        checkAndTransfer(e.getEntity(),id);
+    }
 
-        // 3. Traducir sección → coordenadas de bloque (~centro del chunk)
-        int chunkX = SectionPos.x(event.getPackedNewPos());
-        int chunkZ = SectionPos.z(event.getPackedNewPos());
-        int blockX = (chunkX << 4) + 8;
-        int blockZ = (chunkZ << 4) + 8;
-
-        int id = RegionRouter.computeWorkerId(blockX, blockZ);
+    private static void checkAndTransfer(Entity entity, int id) {
+        if (entity.level().isClientSide()) return;
+        if (entity.isRemoved()) return;
 
         try {
-
-            if(!(entity.getServer().getConnection().getConnections().getFirst() instanceof WorkerConnection workerConnection && workerConnection.getPacketListener() instanceof WorkerListenerImpl workerListener)){
+            if(!(entity.getServer().getConnection().getConnections().getFirst() instanceof WorkerConnection workerConnection &&
+                workerConnection.getPacketListener() instanceof WorkerListenerImpl workerListener)){
                 return;
             }
 
             if(id != DSLServerConfigs.WORKER_ID.get()){
-                if(entity instanceof Player){
-                    //System.out.println("Transfer Player NeoForge");
-                    //Ignored
+                if(entity instanceof ServerPlayer player){
+                    if(player.connection instanceof WorkerGamePacketListenerImpl packetListener){
+                        packetListener.transferPlayer();
+                    }
                 }else {
                     //System.out.println("Transfer Entity NeoForge");
                     workerListener.send(new ProxyBoundEntityTransferPacket(entity,id));
