@@ -22,6 +22,9 @@ public class DSLServerConfigs {
     public static final ModConfigSpec.ConfigValue<List<? extends String>> CONNECTIONS;
     public static final ModConfigSpec.ConfigValue<Integer> PORT;
 
+    public static final ModConfigSpec.ConfigValue<Boolean> AUTO_TP;
+    public static final ModConfigSpec.ConfigValue<Integer> RANGE;
+
     static {
         BUILDER.push("Server");
         IS_PROXY = BUILDER.comment("Is this node a proxy? (only one can be the proxy)").define("is_proxy",true);
@@ -44,9 +47,12 @@ public class DSLServerConfigs {
             if (object instanceof String s) return true;
             return false;
         });
-
         BUILDER.pop();
 
+        BUILDER.push("Tests");
+        AUTO_TP = BUILDER.comment("teleport login entity to a random distributed position").define("auto_tp",false);
+        RANGE = BUILDER.comment("range of the teleportation area in blocks").define("tp_range",1920);
+        BUILDER.pop();
     }
 
     public static final ModConfigSpec SPEC = BUILDER.build();

@@ -107,8 +107,8 @@ public class RegionRouter {
         playerOutboundConnections.put(playerID,connection);
     }
 
-    public Connection getOutgoingConnection(UUID playerID){
-        return playerOutboundConnections.get(playerID);
+    public Map<UUID,Connection> getOutgoingConnections(){
+        return playerOutboundConnections;
     }
 
     public void broadCast(Packet<?> packet){

@@ -1,6 +1,7 @@
 package com.manwe.dsl;
 
 import com.manwe.dsl.config.DSLServerConfigs;
+import com.manwe.dsl.dedicatedServer.worker.AutoRandomTp;
 import com.manwe.dsl.dedicatedServer.worker.LocalProfiler;
 import com.manwe.dsl.dedicatedServer.worker.MetricFileLogger;
 import com.manwe.dsl.dedicatedServer.worker.WorkerBoundaryListener;
@@ -52,6 +53,7 @@ public class DistributedServerLevels {
         NeoForge.EVENT_BUS.register(new WorkerBoundaryListener());
         NeoForge.EVENT_BUS.register(new LocalProfiler());
         NeoForge.EVENT_BUS.register(MetricFileLogger.class);
+        NeoForge.EVENT_BUS.register(new AutoRandomTp());
 
     }
 

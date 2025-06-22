@@ -14,30 +14,38 @@ public class ProxyBoundHealthPacket implements Packet<ProxyListener> {
             ProxyBoundHealthPacket::write, ProxyBoundHealthPacket::new
     );
 
-    private final long[] tickTime;
+    private final long[] mspt;
+    private final long[] mem;
     private final int workerId;
 
-    public ProxyBoundHealthPacket(long[] tickTime, int workerId) {
-        this.tickTime = tickTime;
+    public ProxyBoundHealthPacket(long[] mspt, long[] mem, int workerId) {
+        this.mspt = mspt;
+        this.mem = mem;
         this.workerId = workerId;
     }
 
     private ProxyBoundHealthPacket(FriendlyByteBuf buf) {
-        this.tickTime = buf.readLongArray();
+        this.mspt = buf.readLongArray();
         this.workerId = buf.readInt();
+        this.mem = buf.readLongArray();
     }
 
     private void write(FriendlyByteBuf buf) {
-        buf.writeLongArray(this.tickTime);
+        buf.writeLongArray(this.mspt);
         buf.writeInt(this.workerId);
+        buf.writeLongArray(this.mem);
     }
 
     public int getWorkerSource() {
         return workerId;
     }
 
-    public long[] getTickTime() {
-        return tickTime;
+    public long[] getMSPTFHistory() {
+        return mspt;
+    }
+
+    public long[] getMemHistory() {
+        return mem;
     }
 
     @Override

@@ -31,6 +31,7 @@ public class WorkerBoundaryListener {
     public void onEntityTeleportation(EntityTeleportEvent e){
         int id = RegionRouter.computeWorkerId(e.getTargetX(), e.getTargetZ());
         checkAndTransfer(e.getEntity(),id);
+        //e.setCanceled(true);
     }
 
     private static void checkAndTransfer(Entity entity, int id) {

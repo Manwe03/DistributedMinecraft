@@ -35,7 +35,8 @@ public class WorkerFakePlayerListenerImpl extends ServerGamePacketListenerImpl {
     public void silentDisconnect(){
         ((ServerGamePacketListenerImplAccessor)this).getChatMessageChain().close();
         this.server.invalidateStatus();
-        this.server.getPlayerList().broadcastSystemMessage(Component.translatable("multiplayer.player.left", this.player.getDisplayName()).withStyle(ChatFormatting.AQUA), false);
+        //this.server.getPlayerList().broadcastSystemMessage(Component.translatable("multiplayer.player.left", this.player.getDisplayName()).withStyle(ChatFormatting.AQUA), false);
+        //this.player.sendSystemMessage(Component.translatable("multiplayer.player.joined", this.player.getDisplayName()).withStyle(ChatFormatting.AQUA),false);
         this.player.disconnect();
         if(!(this.server.getPlayerList() instanceof LocalPlayerList localPlayerList)) throw new RuntimeException("playerList not instance of LocalPlayerList");
         localPlayerList.silentRemoveFakePlayer(this.player);

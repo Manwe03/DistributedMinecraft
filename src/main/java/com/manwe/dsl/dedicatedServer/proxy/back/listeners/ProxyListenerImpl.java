@@ -184,19 +184,31 @@ public class ProxyListenerImpl implements ProxyListener {
 
     @Override
     public void handleWorkerHealth(ProxyBoundHealthPacket packet) {
-        long[] tickData = packet.getTickTime();
+        long[] tickData = packet.getMSPTFHistory();
         long avgMST = 0;
         for (long nanoTickTime : tickData){
             avgMST += nanoTickTime;
         }
-        router.server.workersMSPT.put(packet.getWorkerSource(), ((float) avgMST / (float) tickData.length) / 1_000_000F);
+
+        router.server.workersMeanMSPT.put(packet.getWorkerSource(), ((float) avgMST / (float) tickData.length) / 1_000_000F);
 
         if(router.server.logTiks){ //Save raw data
             DistributedServerLevels.LOGGER.info("Worker: "+packet.getWorkerSource()+" Avg MSPT "+ ((float) avgMST/ (float) tickData.length)/ (float) 1_000_000 );
 
             List<Long> nanoTick = router.server.workersNanoTicks.computeIfAbsent(packet.getWorkerSource(), integer -> new ArrayList<>());
-            for (long tickTime : packet.getTickTime()){
+            for (long tickTime : packet.getMSPTFHistory()){
                 nanoTick.add(tickTime);
+            }
+
+            /*
+            List<Integer> TPS = router.server.workersTPS.computeIfAbsent(packet.getWorkerSource(), integer -> new ArrayList<>());
+            for (int tps : packet.getTpsHistory()){
+                TPS.add(tps);
+            }*/
+
+            List<Long> MEM = router.server.workersMem.computeIfAbsent(packet.getWorkerSource(), integer -> new ArrayList<>());
+            for (long mem : packet.getMemHistory()){
+                MEM.add(mem);
             }
         }
     }

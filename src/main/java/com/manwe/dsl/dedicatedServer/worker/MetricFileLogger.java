@@ -21,8 +21,10 @@ import java.util.*;
 
 public class MetricFileLogger {
     private static final int FLUSH_EVERY_TICKS = 100;
-    private static final Map<Integer, BufferedWriter> WRITERS = new HashMap<>();
-    private static final Map<Integer, Integer>        CURSOR  = new HashMap<>();
+    private static final Map<Integer, BufferedWriter> MSPT_WRITERS = new HashMap<>();
+    private static final Map<Integer, BufferedWriter> MEM_WRITERS = new HashMap<>();
+    private static final Map<Integer, Integer> MSPT_CURSOR = new HashMap<>();
+    private static final Map<Integer, Integer> MEM_CURSOR = new HashMap<>();
 
     private static Path metricsDir;
     private static int  tickCounter;
@@ -48,30 +50,56 @@ public class MetricFileLogger {
 
         System.out.println("Tick Log mspt");
 
-        long now = System.currentTimeMillis();
-
-        server.workersNanoTicks.forEach((integer, longs) -> {
-            int         id    = integer;
-            List<Long>  list  = longs;
-            int         start = CURSOR.getOrDefault(id, 0);
-
-            System.out.println("Write log "+ id);
+        server.workersNanoTicks.forEach((id, list) -> {
+            int         start = MSPT_CURSOR.getOrDefault(id, 0);
 
             if (start < list.size()) {
 
-                BufferedWriter w = WRITERS.computeIfAbsent(id, MetricFileLogger::openWriter);
+                BufferedWriter w = MSPT_WRITERS.get(id);
+                if(w == null) {
+                    w = MetricFileLogger.openWriter(id,"mspt");
+                    MSPT_WRITERS.put(id,w);
+                }
 
                 // escribe todas las muestras pendientes
                 for (int i = start; i < list.size(); i++) {
                     double mspt = list.get(i) / 1_000_000.0;    // ns → ms
                     try {
-                        w.write(now + "," + String.format(Locale.US, "%.5f", mspt));
+                        w.write(String.format(Locale.US, "%.5f", mspt));
                         w.newLine();
                     } catch (IOException ex) {
-                        LogUtils.getLogger().error("No puedo escribir métricas W" + id, ex);
+                        LogUtils.getLogger().error("No puedo escribir métricas [W" + id + "]", ex);
                     }
                 }
-                CURSOR.put(id, list.size());                   // avanza cursor
+                MSPT_CURSOR.put(id, list.size()); // avanza cursor
+                try {
+                    w.flush();
+                } catch (IOException ignored) {
+                }
+            }
+        });
+
+        server.workersMem.forEach((id, list) -> {
+            int start = MEM_CURSOR.getOrDefault(id, 0);
+            if (start < list.size()) {
+
+                BufferedWriter w = MEM_WRITERS.get(id);
+                if(w == null) {
+                    w = MetricFileLogger.openWriter(id,"mem");
+                    MEM_WRITERS.put(id,w);
+                }
+
+                // escribe todas las muestras pendientes
+                for (int i = start; i < list.size(); i++) {
+                    try {
+                        //System.out.println("tps: "+list.get(i));
+                        w.write(""+list.get(i));
+                        w.newLine();
+                    } catch (IOException ex) {
+                        LogUtils.getLogger().error("No puedo escribir métricas [W" + id + "]", ex);
+                    }
+                }
+                MEM_CURSOR.put(id, list.size()); // avanza cursor
                 try {
                     w.flush();
                 } catch (IOException ignored) {
@@ -82,23 +110,27 @@ public class MetricFileLogger {
 
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent e) {
-        WRITERS.values().forEach(w -> {                     // cierra todos
+        MSPT_WRITERS.values().forEach(w -> {                     // cierra todos
             try { w.close(); } catch (IOException ignored) {}
         });
-        WRITERS.clear();
+        MSPT_WRITERS.clear();
+
+        MEM_WRITERS.values().forEach(w -> {                     // cierra todos
+            try { w.close(); } catch (IOException ignored) {}
+        });
+        MEM_WRITERS.clear();
     }
 
-    private static BufferedWriter openWriter(int workerId) {
+    private static BufferedWriter openWriter(int workerId, String prefx) {
         try {
-            String fileName = "worker-" + workerId + "-"
-                    + LocalDate.now(ZoneOffset.UTC) + ".csv";
+            String fileName = "worker-" + workerId + "-"+prefx+"-" + LocalDate.now(ZoneOffset.UTC) + ".csv";
             Path   file = metricsDir.resolve(fileName);
 
             boolean newFile = Files.notExists(file);
             BufferedWriter w = Files.newBufferedWriter(
                     file, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
 
-            if (newFile) w.write("epochMillis,mspt\n");     // cabecera
+            if (newFile) w.write(prefx+"\n");     // cabecera
             return w;
         } catch (IOException ex) {
             throw new UncheckedIOException("No se pudo abrir CSV de W" + workerId, ex);

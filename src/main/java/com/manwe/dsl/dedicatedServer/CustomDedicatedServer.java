@@ -63,8 +63,9 @@ public class CustomDedicatedServer extends DedicatedServer {
     private final AtomicInteger timeSugestions = new AtomicInteger();
     private RegionRouter router = null;
 
-    public Map<Integer, Float> workersMSPT = new ConcurrentHashMap<>();
+    public Map<Integer, Float> workersMeanMSPT = new ConcurrentHashMap<>();
     public Map<Integer, List<Long>> workersNanoTicks = new HashMap<>();
+    public Map<Integer, List<Long>> workersMem = new HashMap<>();
 
     public CustomDedicatedServer(Thread pServerThread, LevelStorageSource.LevelStorageAccess pStorageSource, PackRepository pPackRepository, WorldStem pWorldStem, DedicatedServerSettings pSettings, DataFixer pFixerUpper, Services pServices, ChunkProgressListenerFactory pProgressListenerFactory) {
         super(pServerThread, pStorageSource, pPackRepository, pWorldStem, pSettings, pFixerUpper, pServices, pProgressListenerFactory);

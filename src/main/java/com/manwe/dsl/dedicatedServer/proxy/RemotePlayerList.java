@@ -7,13 +7,19 @@ import com.manwe.dsl.dedicatedServer.proxy.front.listeners.ProxyServerGameListen
 import com.manwe.dsl.dedicatedServer.worker.packets.login.WorkerBoundPlayerLoginPacket;
 import com.manwe.dsl.mixin.accessors.PlayerListAccessor;
 import com.mojang.serialization.Dynamic;
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.LayeredRegistryAccess;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.Connection;
+import net.minecraft.network.PacketSendListener;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.network.protocol.game.*;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.RegistryLayer;
@@ -29,6 +35,7 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * Modified PlaceNewPlayer, set up RemoteServerGamePacketListenerImpl instead of ServerGamePacketListenerImpl
@@ -113,36 +120,18 @@ public class RemotePlayerList extends DedicatedPlayerList {
         pPlayer.getStats().markAllDirty();
         customDedicatedServer.invalidateStatus();
 
-
         this.router.route(pPlayer.getUUID()).send(initPacket); //Send init to worker
+
+        MutableComponent mutablecomponent = Component.translatable("multiplayer.player.joined", pPlayer.getDisplayName());
+        this.broadcastSystemMessage(mutablecomponent.withStyle(ChatFormatting.YELLOW), false);
+        System.out.println("broadcast login");
     }
 
     @Override
-    public void tick() {
-        super.tick();
-    }
-
-    /*
-    @Override
-    public void broadcastChatMessage(PlayerChatMessage pMessage, ServerPlayer pSender, ChatType.Bound pBoundChatType) {
-        this.broadcastChatMessage(pMessage, pSender::shouldFilterMessageTo, pSender, pBoundChatType);
-    }
-
-    private void broadcastChatMessage(PlayerChatMessage pMessage, Predicate<ServerPlayer> pShouldFilterMessageTo, @Nullable ServerPlayer pSender, ChatType.Bound pBoundChatType) {
-        boolean flag = true;//pMessage.hasSignature() && !pMessage.hasExpiredServer(Instant.now());
-        this.getServer().logChatMessage(pMessage.decoratedContent(), pBoundChatType, flag ? null : "Not Secure");
-        OutgoingChatMessage outgoingchatmessage = OutgoingChatMessage.create(pMessage);
-        boolean flag1 = false;
-
-        for (ServerPlayer serverplayer : this.getPlayers()) {
-            boolean flag2 = pShouldFilterMessageTo.test(serverplayer);
-            serverplayer.sendChatMessage(outgoingchatmessage, flag2, pBoundChatType);
-            flag1 |= flag2 && pMessage.isFullyFiltered();
-        }
-
-        if (flag1 && pSender != null) {
-            pSender.sendSystemMessage(CHAT_FILTERED_FULL);
+    public void broadcastSystemMessage(Component message, boolean bypassHiddenChat) {
+        this.getServer().sendSystemMessage(message);
+        for (Connection connection : this.router.getOutgoingConnections().values()) {
+            connection.send(new ClientboundSystemChatPacket(message, bypassHiddenChat), PacketSendListener.exceptionallySend(() -> null));
         }
     }
-     */
 }
