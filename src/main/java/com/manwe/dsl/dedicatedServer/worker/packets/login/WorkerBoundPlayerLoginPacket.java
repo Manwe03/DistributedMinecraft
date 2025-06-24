@@ -13,6 +13,7 @@ import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.neoforged.neoforge.network.connection.ConnectionType;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
@@ -79,7 +80,7 @@ public class WorkerBoundPlayerLoginPacket implements Packet<WorkerListener> {
     }
 
     @Override
-    public PacketType<? extends Packet<WorkerListener>> type() {
+    public @NotNull PacketType<? extends Packet<WorkerListener>> type() {
         return InternalPacketTypes.PROXY_WORKER_PLAYER_LOGIN;
     }
 
@@ -88,7 +89,7 @@ public class WorkerBoundPlayerLoginPacket implements Packet<WorkerListener> {
      */
     @Override
     public void handle(WorkerListener pHandler) {
-        System.out.println("Handle Login in worker");
+        //System.out.println("Handle Login in worker");
         pHandler.handlePlayerLogin(this);
     }
 }

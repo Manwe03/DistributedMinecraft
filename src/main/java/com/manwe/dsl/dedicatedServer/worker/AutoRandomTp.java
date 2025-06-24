@@ -24,7 +24,7 @@ public class AutoRandomTp {
                 z = ThreadLocalRandom.current().nextGaussian() * sigma + mu;
             } while (x < a || x > b || z < a || z > b);
 
-            System.out.println("Auto Teleport "+sp.getDisplayName().getString()+" to X:"+x+" Z:"+z);
+            //System.out.println("Auto Teleport "+sp.getDisplayName().getString()+" to X:"+x+" Z:"+z);
 
             //Trigger event
             net.neoforged.neoforge.event.entity.EntityTeleportEvent.TeleportCommand transferEvent = net.neoforged.neoforge.event.EventHooks.onEntityTeleportCommand(sp, x, sp.getY(), z);
