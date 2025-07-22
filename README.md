@@ -1,5 +1,5 @@
 
-About This Project
+# About This Project
 
 Minecraft faces a scalability issue: as the number of players increases, performance quickly degrades.
 
