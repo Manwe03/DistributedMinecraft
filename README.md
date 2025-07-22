@@ -23,6 +23,6 @@ Player and entities can seamlesly transfer between servers.
 
 //GiF
 
-The next image shows a wide view of architecture of the solution.
+The next image shows a wide view of the architecture of the solution.
 
 <img width="1692" height="754" alt="arquitectura-detallada" src="https://github.com/user-attachments/assets/07a3007f-21bc-41e7-ab1d-047b56b9d01a" />
