@@ -26,3 +26,14 @@ Player and entities can seamlesly transfer between servers.
 The next image shows a wide view of the architecture of the solution.
 
 <img width="1692" height="754" alt="arquitectura-detallada" src="https://github.com/user-attachments/assets/07a3007f-21bc-41e7-ab1d-047b56b9d01a" />
+
+# Performance improvements
+
+The next graphs shows the mspt of 3 diferent loads with 3,5 and 11 load units in an ordinary server. Each load unit consists of an aproximation of a real player load on the server. (84 entities, 267 block updates y 5120 block entities). Notice how the 11 load excedes the 50ms and has TPS drop.
+
+<img width="1461" height="805" alt="1-ms-1" src="https://github.com/user-attachments/assets/781b4675-906b-46ec-9a6a-725c6a83a044" />
+
+The new distributed system handles the same load across 11 Workers with no TPS drop.
+
+<img width="1401" height="805" alt="1-ms-11" src="https://github.com/user-attachments/assets/d58b67e2-198d-499a-913e-303abf9491be" />
+
